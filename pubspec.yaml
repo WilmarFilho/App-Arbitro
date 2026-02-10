@@ -14,32 +14,40 @@ dependencies:
   # --- BANCO DE DADOS (PERSISTÊNCIA LOCAL) ---
   sqflite: ^2.3.0
   path: ^1.9.0
-
   sqflite_common_ffi: ^2.3.0
   sqlite3_flutter_libs: ^0.5.0
 
-  # --- COMUNICAÇÃO COM API (SPRING BOOT) ---
+  # --- COMUNICAÇÃO COM API E SUPABASE ---
   http: ^1.1.0
+  supabase_flutter: ^2.12.0
 
-  # --- INTERFACE E ÍCONES ---
+  # --- INTERFACE E UTILITÁRIOS ---
   cupertino_icons: ^1.0.8
-
+  flutter_svg: ^2.2.3
   pdf: ^3.11.1
   printing: ^5.13.2
   path_provider: ^2.1.2
-  supabase_flutter: ^2.12.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # Lints recomendados para manter o código limpo
   flutter_lints: ^3.0.0
 
 flutter:
-  # Garante que os ícones do Material (golo, cartões, pause) funcionem
   uses-material-design: true
 
-  # Caso decida adicionar imagens ou fontes customizadas futuramente:
-  # assets:
-  #   - assets/images/
+  # Assets devem ter 2 espaços de recuo em relação ao 'flutter:'
+  assets:
+    - assets/images/envelope.svg
+    - assets/images/key.svg
+    - assets/images/meteor.svg
+
+  # Fonts devem ter 2 espaços de recuo em relação ao 'flutter:'
+  fonts:
+    - family: Bebas Neue
+      fonts:
+        - asset: assets/fonts/BebasNeue-Regular.ttf
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-SemiBold.ttf
