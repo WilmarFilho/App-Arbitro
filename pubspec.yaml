@@ -1,8 +1,8 @@
-name: app_arbitro
-description: "SGEU - Aplicação de Arbitragem com Sincronização Offline."
+name: kyarem_eventos
+description: "Área administrativa de Campeonatos."
 publish_to: 'none'
 
-version: 1.0.0+2
+version: 1.0.0+4 
 
 environment:
   sdk: '>=3.10.8 <4.0.0'
@@ -11,13 +11,13 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- BANCO DE DADOS (PERSISTÊNCIA LOCAL) ---
+  # --- BANCO DE DADOS ---
   sqflite: ^2.3.0
   path: ^1.9.0
   sqflite_common_ffi: ^2.3.0
   sqlite3_flutter_libs: ^0.5.0
 
-  # --- COMUNICAÇÃO COM API E SUPABASE ---
+  # --- COMUNICAÇÃO ---
   http: ^1.1.0
   supabase_flutter: ^2.12.0
 
@@ -32,17 +32,33 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: "^0.13.1"
+  flutter_native_splash: ^2.4.0
+
+# Configuração do Ícone (Fora do dev_dependencies)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png" 
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/icon.png"
+
+flutter_native_splash:
+  color: "#FFFFFF" # Cor do fundo da tela
+  image: assets/images/splash.png # Sua logo de 1024x1024
+  android_12:
+    image: assets/images/splash.png # Versão para Android novo (geralmente redonda)
 
 flutter:
   uses-material-design: true
 
-  # Assets devem ter 2 espaços de recuo em relação ao 'flutter:'
   assets:
     - assets/images/envelope.svg
     - assets/images/key.svg
     - assets/images/meteor.svg
+    - assets/images/icon.png 
+    - assets/images/splash.png 
 
-  # Fonts devem ter 2 espaços de recuo em relação ao 'flutter:'
   fonts:
     - family: Bebas Neue
       fonts:

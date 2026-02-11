@@ -44,8 +44,8 @@ class MyApp extends StatelessWidget {
     final session = Supabase.instance.client.auth.currentSession;
     
     return MaterialApp(
-      title: 'SGEU - Árbitro',
-      navigatorKey: navigatorKey, // IMPORTANTE: Atribuindo a chave aqui
+      title: 'Kyarem Eventos',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
