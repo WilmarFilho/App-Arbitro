@@ -41,14 +41,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      // Definimos a cor de fundo como branco para que, ao scrollar, 
-      // tudo o que estiver abaixo do gradiente seja branco puro.
+      // Fundo branco garante que o scroll infinito continue branco
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. O Fundo com Gradiente (apenas na metade superior)
+          // 1. O Fundo com Gradiente (altura reduzida para 50% da tela)
           Container(
-            height: MediaQuery.of(context).size.height * 0.6,
+            height: MediaQuery.of(context).size.height * 0.5,
             decoration: const BoxDecoration(
               gradient: RadialGradient(
                 center: Alignment(0.7, -0.6),
@@ -72,12 +71,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildHeaderSection(),
                   _buildCardsSection(),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 15), // Reduzido de 30 para 15
                   _buildWhatDoYouWantSection(),
-                  const SizedBox(height: 25),
                   
-                  // O Container Branco que "estica"
-                  _buildMainGamesSection(),
+                  // O Container Branco que "sobe" e "estica"
+                  Transform.translate(
+                    offset: const Offset(0, -15), // Puxa o container para cima
+                    child: _buildMainGamesSection(),
+                  ),
                 ],
               ),
             ),
@@ -92,15 +93,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeaderSection() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 10, 22, 20),
+      padding: const EdgeInsets.fromLTRB(22, 10, 22, 15), // Padding inferior reduzido
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              Text('Olá {Nome},', style: TextStyle(fontFamily: 'Poppins', fontSize: 24)),
-              Text('Seja bem vindo!', style: TextStyle(fontFamily: 'Poppins', fontSize: 26, fontWeight: FontWeight.bold)),
+              Text('Olá {Nome},', style: TextStyle(fontFamily: 'Poppins', fontSize: 22)),
+              Text('Seja bem vindo!', style: TextStyle(fontFamily: 'Poppins', fontSize: 24, fontWeight: FontWeight.bold)),
             ],
           ),
           const CircleAvatar(
@@ -115,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCardsSection() {
     return SizedBox(
-      height: 200,
+      height: 180, // Reduzido de 200 para 180
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -126,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return GestureDetector(
             onTap: partida != null ? () => _confirmarInicioPartida(context, partida) : null,
             child: Container(
-              width: 280,
+              width: 260, // Largura levemente reduzida
               margin: const EdgeInsets.only(right: 16),
               decoration: BoxDecoration(
                 color: const Color(0xFFF3A68F),
@@ -138,11 +139,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Futsal', style: TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold)),
+                        const Text('Futsal', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 5),
-                        Text('ID: ${partida?.id ?? '13123142'}', style: const TextStyle(color: Colors.white, fontSize: 14)),
-                        const Text('Data: 21/10/2026', style: TextStyle(color: Colors.white, fontSize: 14)),
-                        const Text('Hora: 14:00', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        Text('ID: ${partida?.id ?? '13123142'}', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                        const Text('Data: 21/10/2026', style: TextStyle(color: Colors.white, fontSize: 13)),
+                        const Text('Hora: 14:00', style: TextStyle(color: Colors.white, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -152,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                      child: const Text('SEU JOGO', style: TextStyle(color: Color(0xFFF3A68F), fontSize: 10, fontWeight: FontWeight.bold)),
+                      child: const Text('SEU JOGO', style: TextStyle(color: Color(0xFFF3A68F), fontSize: 9, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -167,16 +168,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildWhatDoYouWantSection() {
     return Column(
       children: [
-        const Text('OQUE VOCÊ QUER VER?', style: TextStyle(fontFamily: 'Bebas Neue', fontSize: 32)),
-        const SizedBox(height: 20),
+        const Text('OQUE VOCÊ QUER VER?', style: TextStyle(fontFamily: 'Bebas Neue', fontSize: 28)),
+        const SizedBox(height: 15),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildOptionButton(Icons.person, 'Jogos'),
-            _buildOptionButton(Icons.person, 'Árbitros'),
-            _buildOptionButton(Icons.person, 'Campeonatos'),
+            _buildOptionButton(Icons.sports_soccer, 'Jogos'),
+            _buildOptionButton(Icons.gavel, 'Árbitros'),
+            _buildOptionButton(Icons.emoji_events, 'Campeonatos'),
           ],
         ),
+        const SizedBox(height: 20), // Espaço para o container branco não colar nos ícones
       ],
     );
   }
@@ -185,12 +187,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         CircleAvatar(
-          radius: 32,
+          radius: 30,
           backgroundColor: const Color(0xFFF85C39),
-          child: Icon(icon, color: Colors.white, size: 30),
+          child: Icon(icon, color: Colors.white, size: 28),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontFamily: 'Poppins', fontSize: 14)),
+        Text(label, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13)),
       ],
     );
   }
@@ -198,8 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMainGamesSection() {
     return Container(
       width: double.infinity,
-      // A mágica está aqui: O container não tem altura fixa, 
-      // ele ocupa o espaço necessário e a cor de fundo do Scaffold faz o resto.
+      // Padding inferior de 120 para não esconder o último item atrás da navegação
       padding: const EdgeInsets.fromLTRB(22, 30, 22, 120),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -214,12 +215,11 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Jogos', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              Text('Ver Todos / Ver Meus', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+              const Text('Jogos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Text('Ver Todos / Ver Meus', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
             ],
           ),
           const SizedBox(height: 20),
-          // Gerando itens de partidas reais ou dados de exemplo
           ...(_partidas.isNotEmpty 
             ? _partidas.map((partida) => _buildGameListItem(partida: partida)).toList()
             : List.generate(10, (index) => _buildGameListItem())),
@@ -236,21 +236,21 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
         decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(18)),
         child: Row(
-        children: [
-          const Icon(Icons.sports_basketball, size: 30),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Futsal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(partida != null ? '${partida.nomeTimeA} x ${partida.nomeTimeB}' : 'Computaria Masculina', 
-                     style: const TextStyle(fontSize: 13, color: Color(0xFF555555))),
-              ],
+          children: [
+            const Icon(Icons.sports_basketball, size: 28),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Futsal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(partida != null ? '${partida.nomeTimeA} x ${partida.nomeTimeB}' : 'Computaria Masculina', 
+                       style: const TextStyle(fontSize: 12, color: Color(0xFF555555))),
+                ],
+              ),
             ),
-          ),
-          const Text('14/10/2026 14:00', style: TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
+            const Text('14/10/2026 14:00', style: TextStyle(fontSize: 9, color: Colors.grey)),
+          ],
         ),
       ),
     );
@@ -331,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-   void _navegarParaSumula(BuildContext context, Partida partida) {
+  void _navegarParaSumula(BuildContext context, Partida partida) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ConfirmaPartidaScreen(partida: partida)),
