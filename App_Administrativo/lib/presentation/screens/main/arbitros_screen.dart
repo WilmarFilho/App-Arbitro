@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_navigation_widget.dart';
+import '../../widgets/bottom_navigation_widget.dart';
 
-class ConfiguracoesScreen extends StatefulWidget {
-  const ConfiguracoesScreen({super.key});
+class ArbitrosScreen extends StatefulWidget {
+  const ArbitrosScreen({super.key});
 
   @override
-  State<ConfiguracoesScreen> createState() => _ConfiguracoesScreenState();
+  State<ArbitrosScreen> createState() => _ArbitrosScreenState();
 }
 
-class _ConfiguracoesScreenState extends State<ConfiguracoesScreen> {
+class _ArbitrosScreenState extends State<ArbitrosScreen> {
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,7 @@ class _ConfiguracoesScreenState extends State<ConfiguracoesScreen> {
           const SafeArea(
             child: Center(
               child: Text(
-                'Configurações',
+                'Árbitros',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -46,7 +46,7 @@ class _ConfiguracoesScreenState extends State<ConfiguracoesScreen> {
           ),
 
           // Barra de Navegação
-          const BottomNavigationWidget(currentRoute: '/configuracoes'),
+          const BottomNavigationWidget(currentRoute: '/arbitros'),
         ],
       ),
     );

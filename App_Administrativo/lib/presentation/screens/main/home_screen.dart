@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../data/models/partida_model.dart';
-import '../../data/repositories/partida_repository.dart';
-import 'confirma_partida_screen.dart';
-import '../widgets/bottom_navigation_widget.dart';
+import 'package:kyarem_eventos/presentation/screens/game/partida_screen.dart';
+import '../../../data/models/partida_model.dart';
+import '../../../data/repositories/partida_repository.dart';
+import '../game/partida_screen.dart';
+import '../../widgets/bottom_navigation_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -191,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: FadeTransition(
                   opacity: _fadeAnimations[animationIndex],
                   child: GestureDetector(
-                    onTap: partida != null ? () => _confirmarInicioPartida(context, partida) : null,
+                    onTap: partida != null ? () => _navegarParaPartida(context, partida) : null,
                     child: Container(
                       width: 260,
                       margin: const EdgeInsets.only(right: 16),
@@ -311,61 +312,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _confirmarInicioPartida(BuildContext context, Partida partida) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.play_circle_fill, color: Colors.blueAccent),
-              SizedBox(width: 10),
-              Text('Iniciar Súmula?', style: TextStyle(color: Colors.white)),
-            ],
-          ),
-          content: Text(
-            'Deseja iniciar o cronômetro e o registro oficial para ${partida.nomeTimeA} x ${partida.nomeTimeB}?',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'CANCELAR',
-                style: TextStyle(color: Colors.white38),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () async {
-                await _repository.iniciarPartida(partida);
-                if (!mounted) return;
-                Navigator.of(context).pop();
-                _navegarParaSumula(context, partida);
-              },
-              child: const Text('CONFIRMAR'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _navegarParaSumula(BuildContext context, Partida partida) {
+  void _navegarParaPartida(BuildContext context, Partida partida) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ConfirmaPartidaScreen(partida: partida),
+        builder: (_) => PartidaRunningScreen(timeA: partida.nomeTimeA, timeB: partida.nomeTimeB),
       ),
     ).then((_) => _carregarDadosIniciais());
   }

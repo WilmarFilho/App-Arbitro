@@ -2,16 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'presentation/screens/home_screen.dart';
-import 'presentation/screens/login_screen.dart';
-import 'presentation/screens/reset_password_screen.dart';
-import 'presentation/screens/perfil_screen.dart';
-import 'presentation/screens/arbitros_screen.dart';
-import 'presentation/screens/campeonatos_screen.dart';
-import 'presentation/screens/configuracoes_screen.dart';
+import 'presentation/screens/main/home_screen.dart';
+import 'presentation/screens/auth/login_screen.dart';
+import 'presentation/screens/auth/reset_password_screen.dart';
+import 'presentation/screens/main/perfil_screen.dart';
+import 'presentation/screens/main/arbitros_screen.dart';
+import 'presentation/screens/main/campeonatos_screen.dart';
+import 'presentation/screens/main/configuracoes_screen.dart';
 
-// Criamos uma chave global para conseguir navegar de qualquer lugar, 
-// mesmo de dentro do listener do Supabase no main.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {

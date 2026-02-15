@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_navigation_widget.dart';
+import '../../widgets/bottom_navigation_widget.dart';
 
-class PerfilScreen extends StatefulWidget {
-  const PerfilScreen({super.key});
+class CampeonatosScreen extends StatefulWidget {
+  const CampeonatosScreen({super.key});
 
   @override
-  State<PerfilScreen> createState() => _PerfilScreenState();
+  State<CampeonatosScreen> createState() => _CampeonatosScreenState();
 }
 
-class _PerfilScreenState extends State<PerfilScreen> {
+class _CampeonatosScreenState extends State<CampeonatosScreen> {
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
           const SafeArea(
             child: Center(
               child: Text(
-                'Perfil',
+                'Campeonatos',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -46,7 +46,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
           ),
 
           // Barra de Navegação
-          const BottomNavigationWidget(currentRoute: '/perfil'),
+          const BottomNavigationWidget(currentRoute: '/campeonatos'),
         ],
       ),
     );
