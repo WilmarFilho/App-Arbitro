@@ -25,6 +25,7 @@ class _BottomNavigationWidgetState extends State<BottomNavigationWidget> {
             onTap: () => setState(() => _menuAdicionarAberto = false),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
+              // ignore: deprecated_member_use
               color: Colors.black.withOpacity(0.4),
             ),
           ),
@@ -55,6 +56,7 @@ class _BottomNavigationWidgetState extends State<BottomNavigationWidget> {
             borderRadius: BorderRadius.circular(35),
             boxShadow: [
               BoxShadow(
+                // ignore: deprecated_member_use
                 color: Colors.black.withOpacity(0.15),
                 blurRadius: 30,
                 offset: const Offset(0, 10),

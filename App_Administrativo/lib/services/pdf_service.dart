@@ -34,12 +34,12 @@ class PdfService {
                 children: [
                   pw.Column(children: [
                     pw.Text(partida.nomeTimeA, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-                    pw.Text("${partida.sumula.placarTimeA}", style: pw.TextStyle(fontSize: 30)),
+                    pw.Text("${partida.sumula.placarTimeA}", style: const pw.TextStyle(fontSize: 30)),
                   ]),
-                  pw.Text("X", style: pw.TextStyle(fontSize: 20)),
+                  pw.Text("X", style: const pw.TextStyle(fontSize: 20)),
                   pw.Column(children: [
                     pw.Text(partida.nomeTimeB, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-                    pw.Text("${partida.sumula.placarTimeB}", style: pw.TextStyle(fontSize: 30)),
+                    pw.Text("${partida.sumula.placarTimeB}", style: const pw.TextStyle(fontSize: 30)),
                   ]),
                 ],
               ),

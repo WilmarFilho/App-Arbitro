@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:kyarem_eventos/presentation/screens/game/partida_screen.dart';
 import '../../../data/models/partida_model.dart';
 import '../../../data/repositories/partida_repository.dart';
-import '../../widgets/bottom_navigation_widget.dart';
+import '../../widgets/layout/bottom_navigation_widget.dart';
+import '../../widgets/layout/gradient_background.dart';
+import '../../widgets/home/home_header.dart';
+import '../../widgets/home/partida_card.dart';
+import '../../widgets/home/option_button.dart';
+import '../../widgets/home/mock_list_item.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -99,27 +104,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       body: Stack(
         children: [
           // 1. Fundo com Gradiente
-          Container(
-            height: MediaQuery.of(context).size.height * 0.8,
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(0.7, -0.6),
-                radius: 1.5,
-                colors: [
-                  Color(0xFFD1FFDA),
-                  Color(0xFFB7FFEB),
-                  Color(0xFFCBFFFB),
-                ],
-              ),
-            ),
-          ),
+          const GradientBackground(),
 
           // 2. Estrutura Principal
           SafeArea(
             child: Column(
               children: [
                 const SizedBox(height: 30),
-                _buildHeaderSection(),
+                const HomeHeader(),
                 _buildCardsSection(),
                 const SizedBox(height: 20),
                 _buildWhatDoYouWantSection(),
@@ -135,34 +127,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
           // 3. Barra de Navegação
           const BottomNavigationWidget(currentRoute: '/home'),
-        ],
-      ),
-    );
-  }
-
-  // (Os outros métodos _build permanecem conforme sua lógica original de design)
-
-  Widget _buildHeaderSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Olá {Nome},', style: TextStyle(fontFamily: 'Poppins', fontSize: 20)),
-              Text('Seja bem vindo!', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/perfil'),
-            child: const CircleAvatar(
-              radius: 25,
-              backgroundColor: Color(0xFF555555),
-              child: Icon(Icons.person_outline, color: Colors.white, size: 22),
-            ),
-          ),
         ],
       ),
     );
@@ -184,33 +148,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             itemCount: _partidas.isEmpty ? 3 : _partidas.length,
             itemBuilder: (context, index) {
               final partida = _partidas.isNotEmpty ? _partidas[index] : null;
-              final animationIndex = index.clamp(0, 2); // Limita a 3 animações
+              final animationIndex = index.clamp(0, 2);
               
-              return SlideTransition(
-                position: _slideAnimations[animationIndex],
-                child: FadeTransition(
-                  opacity: _fadeAnimations[animationIndex],
-                  child: GestureDetector(
-                    onTap: partida != null ? () => _navegarParaPartida(context, partida) : null,
-                    child: Container(
-                      width: 260,
-                      margin: const EdgeInsets.only(right: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3A68F),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text('Futsal', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                            Text('ID: ${partida?.id ?? '13123142'}', style: const TextStyle(color: Colors.white, fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              return PartidaCard(
+                partida: partida,
+                fadeAnimation: _fadeAnimations[animationIndex],
+                slideAnimation: _slideAnimations[animationIndex],
+                onTap: partida != null ? () => _navegarParaPartida(context, partida) : null,
               );
             },
           ),
@@ -225,39 +169,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildOptionButton(Icons.sports_soccer, 'Jogos'),
-            _buildOptionButton(Icons.gavel, 'Árbitros'),
-            _buildOptionButton(Icons.emoji_events, 'Campeonatos'),
+            OptionButton(
+              icon: Icons.sports_soccer,
+              label: 'Jogos',
+              isSelected: _abaSelecionada == 'Jogos',
+              onTap: () => setState(() => _abaSelecionada = 'Jogos'),
+            ),
+            OptionButton(
+              icon: Icons.gavel,
+              label: 'Árbitros',
+              isSelected: _abaSelecionada == 'Árbitros',
+              onTap: () => setState(() => _abaSelecionada = 'Árbitros'),
+            ),
+            OptionButton(
+              icon: Icons.emoji_events,
+              label: 'Campeonatos',
+              isSelected: _abaSelecionada == 'Campeonatos',
+              onTap: () => setState(() => _abaSelecionada = 'Campeonatos'),
+            ),
           ],
         ),
         const SizedBox(height: 15),
       ],
-    );
-  }
-
-  Widget _buildOptionButton(IconData icon, String label) {
-    bool isSelected = _abaSelecionada == label;
-    return GestureDetector(
-      onTap: () => setState(() => _abaSelecionada = label),
-      child: AnimatedScale(
-        scale: isSelected ? 1.1 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        child: Column(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? const Color(0xFFF85C39) : const Color.fromARGB(159, 248, 92, 57),
-              ),
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(height: 8),
-            Text(label, style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-          ],
-        ),
-      ),
     );
   }
 
@@ -288,24 +221,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 120),
               itemCount: 10,
-              itemBuilder: (context, index) => _buildMockListItem(),
+              itemBuilder: (context, index) => MockListItem(
+                sectionType: _abaSelecionada,
+              ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMockListItem() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
-      decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(18)),
-      child: Row(
-        children: [
-          Icon(_abaSelecionada == 'Árbitros' ? Icons.person : Icons.workspace_premium, size: 28),
-          const SizedBox(width: 15),
-          Text('Item de $_abaSelecionada Mockado', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:sqflite/sqflite.dart';
 import '../models/partida_model.dart';
 import '../models/sumula_model.dart';
@@ -10,7 +11,7 @@ class PartidaRepository {
 
   // 1. CARGA INICIAL: Busca Mocks e popula o Banco Local
   Future<List<Partida>> buscarPartidasDoDia() async {
-    print("DEBUG: Iniciando busca de partidas (Mock)...");
+   
     await Future.delayed(const Duration(seconds: 1));
 
     final mocks = [
@@ -34,8 +35,6 @@ class PartidaRepository {
       ),
     ];
 
-
-    print("DEBUG: Salvando ${mocks.length} partidas no cache local...");
     await _salvarPartidasNoCache(mocks);
 
     await debugCheckDatabase();
@@ -53,7 +52,7 @@ class PartidaRepository {
     );
 
     await debugCheckDatabase();
-    print("API JAVA: Partida $partidaId encerrada automaticamente.");
+    
   }
 
   // 2. INICIAR PARTIDA: Atualiza cache e notifica servidor
@@ -68,9 +67,8 @@ class PartidaRepository {
       whereArgs: [partida.id],
     );
 
-    // TODO: Implementar chamada real via Dio/Http para o seu Backend Java
     await debugCheckDatabase();
-    print("API JAVA: Partida ${partida.id} iniciada com sucesso.");
+
   }
 
   // 3. REGISTRAR EVENTO: Grava no SQLite e entra na fila de sincronização
@@ -127,11 +125,9 @@ class PartidaRepository {
       );
 
       await debugCheckDatabase();
-      print("SYNC: Evento $tipo do atleta $atleta enviado ao Java.");
+     
     } catch (e) {
-      print(
-        "SYNC ERROR: Falha ao enviar para o Java. O evento $eventoId permanece no cache.",
-      );
+      developer.log('Erro ao sincronizar evento $eventoId: $e');
     }
   }
 
@@ -150,21 +146,11 @@ class PartidaRepository {
   Future<void> debugCheckDatabase() async {
     final db = await _dbHelper.database;
 
-    // Verifica Súmulas
-    final sumulas = await db.query('sumulas_cache');
-    print('--- DEBUG BANCO: SÚMULAS ---');
-    for (var row in sumulas) {
-      print(
-        'ID: ${row['id']} | Placar: ${row['placar_a']}x${row['placar_b']} | Status: ${row['status']}',
-      );
-    }
-
-
     // Verifica Eventos
     final eventos = await db.query('eventos_cache');
-    print('--- DEBUG BANCO: EVENTOS ---');
+    developer.log('--- DEBUG BANCO: EVENTOS ---');
     for (var row in eventos) {
-      print(
+      developer.log(
         'Tipo: ${row['tipo']} | Atleta: ${row['atleta_id']} | Sincronizado: ${row['sincronizado']}',
       );
     }

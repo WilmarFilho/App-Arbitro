@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:kyarem_eventos/presentation/screens/game/resumo_partida_screen.dart';
+import '../../widgets/layout/gradient_background.dart';
 
 // Enum para controlar os períodos da partida
 enum PeriodoPartida {
@@ -104,8 +105,8 @@ class PartidaRunningScreen extends StatefulWidget {
 
 class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   // Constantes de tempo da partida (em segundos) - fácil configuração
-  static const int DURACAO_PRIMEIRO_TEMPO = 20 * 60; // 20 minutos
-  static const int DURACAO_SEGUNDO_TEMPO = 20 * 60;  // 20 minutos
+  static const int duracaoPrimeiroTempo = 20 * 60; // 20 minutos
+  static const int duracaoSegundoTempo = 20 * 60;  // 20 minutos
   
   int _golsA = 0;
   int _golsB = 0;
@@ -275,7 +276,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   void _verificarFimPeriodo() {
     switch (_periodoAtual) {
       case PeriodoPartida.primeiroTempo:
-        if (_segundos >= DURACAO_PRIMEIRO_TEMPO) {
+        if (_segundos >= duracaoPrimeiroTempo) {
           if (_temProrrogacao && !_estaNaProrrogacao) {
             // Iniciar prorrogação do primeiro tempo
             _iniciarProrrogacao("Prorrogação do 1º Tempo");
@@ -285,7 +286,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         }
         break;
       case PeriodoPartida.segundoTempo:
-        if (_segundos >= DURACAO_SEGUNDO_TEMPO) {
+        if (_segundos >= duracaoSegundoTempo) {
           if (_temProrrogacao && !_estaNaProrrogacao) {
             // Iniciar prorrogação do segundo tempo
             _iniciarProrrogacao("Prorrogação do 2º Tempo");
@@ -354,7 +355,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   
   // Abre modal para selecionar tempo de prorrogação
   void _abrirModalProrrogacao() {
-    final TextEditingController _controller = TextEditingController();
+    final TextEditingController controller = TextEditingController();
     
     showDialog(
       context: context,
@@ -366,7 +367,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
             const Text('Digite o tempo de prorrogação em minutos:'),
             const SizedBox(height: 16),
             TextField(
-              controller: _controller,
+              controller: controller,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: 'Minutos',
@@ -384,7 +385,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final String input = _controller.text.trim();
+              final String input = controller.text.trim();
               final int? minutos = int.tryParse(input);
               
               if (minutos == null || minutos <= 0) {
@@ -662,10 +663,11 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     // Lógica de exemplo para aumentar placar
     if (tipo == "Gol") {
       setState(() {
-        if (isTimeA)
+        if (isTimeA) {
           _golsA++;
-        else
+        } else {
           _golsB++;
+        }
       });
     }
 
@@ -723,7 +725,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   }
 
   Future<void> _salvarEventoNoBanco(String tipo, JogadorFutsal jogador) async {
-    // TODO: Implementar salvamento no banco
+   
     // Exemplo:
     // await _partidaRepository.registrarEvento(
     //   sumulaId: widget.partidaId,
@@ -885,79 +887,84 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !_rodando, // Só permite voltar se a partida não estiver rolando
+      // ignore: deprecated_member_use
       onPopInvoked: (didPop) {
         if (!didPop && _rodando) {
           _mostrarDialogoSaida();
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(
-          0xFFF0FFF4,
-        ), // Fundo levemente esverdeado do design
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                _buildPlacar(),
-                const SizedBox(height: 12),
-                _buildFeedEventos(),
-                const SizedBox(height: 12),
-                _buildCronometroCard(),
-                const SizedBox(height: 16),
-                _buildCampoFutsal(),
-                const SizedBox(height: 16),
-                _buildPainelAcoes(),
-                const SizedBox(height: 20),
-                // Botão Gerar Súmula (só aparece quando partida finalizada)
-                if (_periodoAtual == PeriodoPartida.finalizada) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // pushReplacement impede que o usuário volte para a tela de jogo
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MatchSummaryScreen(
-                              timeA: widget.timeA,
-                              timeB: widget.timeB,
-                              golsA: _golsA,
-                              golsB: _golsB,
-                              eventos: _eventosPartida,
+        body: Stack(
+          children: [
+            // Fundo com Gradiente
+            const GradientBackground(),
+            // Conteúdo Principal
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    _buildPlacar(),
+                    const SizedBox(height: 12),
+                    _buildFeedEventos(),
+                    const SizedBox(height: 12),
+                    _buildCronometroCard(),
+                    const SizedBox(height: 16),
+                    _buildCampoFutsal(),
+                    const SizedBox(height: 16),
+                    _buildPainelAcoes(),
+                    const SizedBox(height: 20),
+                    // Botão Gerar Súmula (só aparece quando partida finalizada)
+                    if (_periodoAtual == PeriodoPartida.finalizada) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            // pushReplacement impede que o usuário volte para a tela de jogo
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MatchSummaryScreen(
+                                  timeA: widget.timeA,
+                                  timeB: widget.timeB,
+                                  golsA: _golsA,
+                                  golsB: _golsB,
+                                  eventos: _eventosPartida,
+                                ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(50),
                             ),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(50),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.analytics),
+                              SizedBox(width: 8),
+                              Text(
+                                'VER RESUMO DA PARTIDA',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.analytics),
-                          SizedBox(width: 8),
-                          Text(
-                            'VER RESUMO DA PARTIDA',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                _buildBotaoVoltar(),
-                const SizedBox(height: 30),
-              ],
+                      const SizedBox(height: 16),
+                    ],
+                    _buildBotaoVoltar(),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -1281,6 +1288,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
+              // ignore: deprecated_member_use
               color: Colors.black.withOpacity(0.1),
               spreadRadius: 1,
               blurRadius: 2,
@@ -1306,7 +1314,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double campoWidth = constraints.maxWidth;
-        final double campoHeight = 250;
+        const double campoHeight = 250;
 
         return Container(
           height: campoHeight,
@@ -1314,6 +1322,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF8DBA94),
             borderRadius: BorderRadius.circular(15),
+            // ignore: deprecated_member_use
             border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
           ),
           child: Stack(
@@ -1642,6 +1651,7 @@ Widget _buildBtnSaidaAjustado(String texto, VoidCallback acao) {
               decoration: BoxDecoration(
                 color: Colors.black26,
                 borderRadius: BorderRadius.circular(15),
+                 // ignore: deprecated_member_use
                 border: Border.all(color: Colors.red.withOpacity(0.3)),
               ),
               child: Row(
@@ -1651,6 +1661,7 @@ Widget _buildBtnSaidaAjustado(String texto, VoidCallback acao) {
                   Text(
                     "SAINDO:",
                     style: TextStyle(
+                       // ignore: deprecated_member_use
                       color: Colors.white.withOpacity(0.5),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -1722,6 +1733,7 @@ Widget _buildBtnSaidaAjustado(String texto, VoidCallback acao) {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
+               // ignore: deprecated_member_use
               colors: [reserva.corTime.withOpacity(0.2), Colors.white10],
             ),
             borderRadius: BorderRadius.circular(15),

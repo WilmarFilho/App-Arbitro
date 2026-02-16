@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/layout/gradient_background.dart';
 
 class MatchSummaryScreen extends StatelessWidget {
   final String timeA;
@@ -23,33 +24,39 @@ class MatchSummaryScreen extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF0FFF4),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(context),
-              _buildScoreCard(),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                child: Row(
-                  children: [
-                    Icon(Icons.history, size: 20, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text(
-                      "RESUMO DOS EVENTOS",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                        letterSpacing: 1.1,
-                      ),
+        body: Stack(
+          children: [
+            // Fundo com Gradiente
+            const GradientBackground(),
+            // Conteúdo Principal
+            SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  _buildScoreCard(),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Row(
+                      children: [
+                        Icon(Icons.history, size: 20, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text(
+                          "RESUMO DOS EVENTOS",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  Expanded(child: _buildEventList()),
+                  _buildActionButtons(context),
+                ],
               ),
-              Expanded(child: _buildEventList()),
-              _buildActionButtons(context),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -82,6 +89,7 @@ class MatchSummaryScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
+            // ignore: deprecated_member_use
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),

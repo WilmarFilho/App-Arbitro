@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../widgets/layout/gradient_background.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,7 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
       Future.microtask(() {
-        Navigator.pushReplacementNamed(context, '/home');
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       });
     }
   }
@@ -49,25 +52,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final bool isSmallScreen = size.width < 393;
 
     return Scaffold(
-      body: Container(
+      body: SizedBox(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0.7, -0.6),
-            radius: 1.3,
-            colors: [
-              Color.fromARGB(255, 160, 255, 228),
-              Color.fromARGB(255, 232, 255, 209),
-              Color.fromARGB(255, 204, 255, 240),
-            ],
-            stops: [0.0, 0.54, 1.0],
-          ),
-        ),
-        child: Column(
+        child: Stack(
           children: [
-            // --- TOPO (DINÂMICO) ---
-            SafeArea(
+            // Fundo com Gradiente
+            const GradientBackground(),
+          // Conteúdo Principal
+          Column(
+            children: [
+          // --- TOPO (DINÂMICO) ---
+          SafeArea(
               bottom: false,
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 25 : 40),
@@ -96,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: isSmallScreen ? 14 : 16,
-                        color: Color.fromRGBO(0, 0, 0, 0.6),
+                        color: const Color.fromRGBO(0, 0, 0, 0.6),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -209,6 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: isSmallScreen ? 11 : 12,
+                               // ignore: deprecated_member_use
                               color: Colors.black.withOpacity(0.5),
                               height: 1.4,
                             ),
@@ -220,7 +217,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-            ),
+        ),
+      ],
+    ),
           ],
         ),
       ),
@@ -260,6 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: SvgPicture.asset(
               svgAsset, width: 18, height: 18,
+               // ignore: deprecated_member_use
               colorFilter: ColorFilter.mode(const Color(0xFFF85C39).withOpacity(0.6), BlendMode.srcIn),
             ),
           ),
@@ -275,6 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
               cursorColor: const Color(0xFFF85C39),
               decoration: InputDecoration(
                 hintText: placeholder,
+                 // ignore: deprecated_member_use
                 hintStyle: TextStyle(color: Colors.black.withOpacity(0.2), fontSize: 15),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.only(right: 16),
@@ -326,7 +327,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
-      if (response.user != null && mounted) {
+      if (response.user != null) {
         final prefs = await SharedPreferences.getInstance();
         if (_remember) {
           await prefs.setString('saved_email', email);
@@ -335,7 +336,9 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           await prefs.clear();
         }
-        Navigator.pushReplacementNamed(context, '/home');
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       }
     } on AuthException catch (e) {
       // Diferencia erro de rede de erro de credencial
