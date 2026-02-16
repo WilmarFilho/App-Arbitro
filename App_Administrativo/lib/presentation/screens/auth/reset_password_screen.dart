@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/layout/gradient_background.dart';
+import '../../widgets/auth/auth_input_label.dart';
+import '../../widgets/auth/auth_input_field.dart';
+import '../../widgets/auth/auth_button.dart';
+import '../../widgets/auth/auth_feedback_message.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -87,37 +91,33 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             style: TextStyle(fontFamily: 'Poppins', color: Colors.black54)),
                           const SizedBox(height: 30),
                           
-                          const Text('Nova Senha:', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          _buildInput(_passwordController, '••••••••', true),
+                          const AuthInputLabel(label: 'Nova Senha:'),
+                          AuthInputField(
+                            controller: _passwordController,
+                            placeholder: '••••••••',
+                            obscureText: true,
+                            isSmall: isSmallScreen,
+                          ),
                           
                           const SizedBox(height: 20),
                           
-                          const Text('Confirmar Senha:', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          _buildInput(_confirmPasswordController, '••••••••', true),
+                          const AuthInputLabel(label: 'Confirmar Senha:'),
+                          AuthInputField(
+                            controller: _confirmPasswordController,
+                            placeholder: '••••••••',
+                            obscureText: true,
+                            isSmall: isSmallScreen,
+                          ),
                           
-                          if (_error != null) 
-                            Padding(
-                              padding: const EdgeInsets.only(top: 15),
-                              child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
-                            ),
+                          AuthFeedbackMessage(errorMessage: _error),
                           
                           const SizedBox(height: 40),
                           
-                          SizedBox(
-                            width: double.infinity,
-                            height: 55,
-                            child: ElevatedButton(
-                              onPressed: _loading ? null : _updatePassword,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFF85C39),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                              ),
-                              child: _loading 
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text('SALVAR NOVA SENHA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            ),
+                          AuthButton(
+                            text: 'SALVAR NOVA SENHA',
+                            onPressed: _updatePassword,
+                            isLoading: _loading,
+                            isSmall: isSmallScreen,
                           ),
                         ],
                       ),
@@ -127,21 +127,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInput(TextEditingController controller, String hint, bool obscure) {
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFFF3F3F3), borderRadius: BorderRadius.circular(12)),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        decoration: InputDecoration(
-          hintText: hint,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         ),
       ),
     );

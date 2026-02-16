@@ -5,7 +5,7 @@ class GradientBackground extends StatelessWidget {
 
   const GradientBackground({
     super.key,
-    this.heightFactor = 0.8,
+    this.heightFactor = 1,
   });
 
   @override

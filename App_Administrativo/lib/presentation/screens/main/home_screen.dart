@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       body: Stack(
         children: [
           // 1. Fundo com Gradiente
-          const GradientBackground(),
+          const GradientBackground( heightFactor: 0.8 ),
 
           // 2. Estrutura Principal
           SafeArea(

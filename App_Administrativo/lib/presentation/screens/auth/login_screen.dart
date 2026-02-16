@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/layout/gradient_background.dart';
+import '../../widgets/auth/auth_header.dart';
+import '../../widgets/auth/auth_input_label.dart';
+import '../../widgets/auth/auth_input_field.dart';
+import '../../widgets/auth/auth_button.dart';
+import '../../widgets/auth/auth_feedback_message.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -63,43 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Column(
             children: [
           // --- TOPO (DINÂMICO) ---
-          SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 25 : 40),
-                child: Column(
-                  children: [
-                    SvgPicture.asset(
-                      'assets/images/meteor.svg',
-                      width: isSmallScreen ? 60 : 80,
-                      height: isSmallScreen ? 60 : 80,
-                    ),
-                    SizedBox(height: isSmallScreen ? 10 : 16),
-                    Text(
-                      'KYAREM EVENTOS',
-                      style: TextStyle(
-                        fontFamily: 'Bebas Neue',
-                        fontWeight: FontWeight.w400,
-                        fontSize: isSmallScreen ? 42 : 52,
-                        color: Colors.black,
-                        height: 1.0,
-                        letterSpacing: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      'Área Administrativa',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: isSmallScreen ? 14 : 16,
-                        color: const Color.fromRGBO(0, 0, 0, 0.6),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          AuthHeader(isSmall: isSmallScreen),
 
             // --- CORPO (DINÂMICO) ---
             Expanded(
@@ -134,8 +102,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       SizedBox(height: isSmallScreen ? 25 : 35),
                       
-                      _buildInputLabel('Seu e-mail:'),
-                      _buildFigmaInput(
+                      const AuthInputLabel(label: 'Seu e-mail:'),
+                      AuthInputField(
                         controller: _emailController,
                         placeholder: 'exemplo@email.com',
                         svgAsset: 'assets/images/envelope.svg',
@@ -145,8 +113,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       SizedBox(height: isSmallScreen ? 15 : 25),
                       
-                      _buildInputLabel('Sua senha:'),
-                      _buildFigmaInput(
+                      const AuthInputLabel(label: 'Sua senha:'),
+                      AuthInputField(
                         controller: _passwordController,
                         placeholder: '••••••••',
                         svgAsset: 'assets/images/key.svg',
@@ -188,12 +156,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       
                       // Mensagens de Feedback
-                      if (_error != null) _buildFeedbackText(_error!, Colors.redAccent),
-                      if (_success != null) _buildFeedbackText(_success!, Colors.green),
+                      AuthFeedbackMessage(
+                        errorMessage: _error,
+                        successMessage: _success,
+                      ),
                       
                       SizedBox(height: isSmallScreen ? 25 : 35),
                       
-                      _buildFigmaLoginButton(isSmallScreen),
+                      AuthButton(
+                        text: 'Entrar',
+                        onPressed: _login,
+                        isLoading: _loading,
+                        isSmall: isSmallScreen,
+                      ),
                       
                       SizedBox(height: isSmallScreen ? 20 : 25),
                       
@@ -226,88 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // --- COMPONENTES AUXILIARES ---
-
-  Widget _buildFeedbackText(String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Text(text, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500)),
-    );
-  }
-
-  Widget _buildInputLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 6),
-      child: Text(label, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 14, color: Colors.black87)),
-    );
-  }
-
-  Widget _buildFigmaInput({
-    required TextEditingController controller,
-    required String placeholder,
-    required String svgAsset,
-    bool obscureText = false,
-    TextInputType? keyboardType,
-    required bool isSmall,
-  }) {
-    return Container(
-      height: isSmall ? 48 : 56,
-      decoration: BoxDecoration(color: const Color(0xFFF3F3F3), borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: SvgPicture.asset(
-              svgAsset, width: 18, height: 18,
-               // ignore: deprecated_member_use
-              colorFilter: ColorFilter.mode(const Color(0xFFF85C39).withOpacity(0.6), BlendMode.srcIn),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: obscureText,
-              keyboardType: keyboardType,
-              // IMPORTANTE: Remove autocorreção e primeira letra maiúscula para evitar erros de login
-              autocorrect: false,
-              enableSuggestions: false,
-              textCapitalization: TextCapitalization.none,
-              cursorColor: const Color(0xFFF85C39),
-              decoration: InputDecoration(
-                hintText: placeholder,
-                 // ignore: deprecated_member_use
-                hintStyle: TextStyle(color: Colors.black.withOpacity(0.2), fontSize: 15),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.only(right: 16),
-              ),
-              style: const TextStyle(fontFamily: 'Poppins', fontSize: 15, color: Colors.black),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFigmaLoginButton(bool isSmall) {
-    return SizedBox(
-      width: double.infinity,
-      height: isSmall ? 50 : 58,
-      child: ElevatedButton(
-        onPressed: _loading ? null : _login,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF85C39),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-          elevation: 0,
-        ),
-        child: _loading
-            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-            : Text('Entrar', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: isSmall ? 16 : 18)),
-      ),
-    );
-  }
-
-  // --- LÓGICA CORRIGIDA ---
+  // --- LÓGICA DE AUTENTICAÇÃO ---
 
   Future<void> _login() async {
     // Normalização dos dados para evitar erros de teclado no celular físico

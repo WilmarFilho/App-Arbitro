@@ -2,6 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:kyarem_eventos/presentation/screens/game/resumo_partida_screen.dart';
 import '../../widgets/layout/gradient_background.dart';
+import '../../widgets/game/game_scoreboard.dart';
+import '../../widgets/game/game_events_feed.dart';
+import '../../widgets/game/game_timer_card.dart';
+import '../../widgets/game/game_field.dart';
+import '../../widgets/game/game_actions_panel.dart';
 
 // Enum para controlar os períodos da partida
 enum PeriodoPartida {
@@ -181,13 +186,13 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       numero: 12,
       nome: "Goleiro B",
       corTime: Colors.blue,
-      posicao: const Offset(0.89, 0.45),
+      posicao: const Offset(0.87, 0.45),
     ),
     JogadorFutsal(
       numero: 4,
       nome: "Fixo B",
       corTime: Colors.blue,
-      posicao: const Offset(0.75, 0.45),
+      posicao: const Offset(0.73, 0.45),
     ),
     JogadorFutsal(
       numero: 8,
@@ -743,19 +748,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     return '${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')}';
   }
 
-  Widget _formatarTempoPausa() {
-    int min = _segundosPausa ~/ 60;
-    int seg = _segundosPausa % 60;
-    return Text(
-      '${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')} (Pausa em andamento)',
-      style: TextStyle(
-        color: _rodando ? Colors.white60 : Colors.orange,
-        fontSize: 10,
-        fontWeight: _rodando ? FontWeight.normal : FontWeight.bold,
-      ),
-    );
-  }
-
   void _abrirDetalhesJogador(JogadorFutsal jogador) {
     showModalBottomSheet(
       context: context,
@@ -905,15 +897,54 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                 child: Column(
                   children: [
                     const SizedBox(height: 10),
-                    _buildPlacar(),
+                    GameScoreboard(
+                      timeA: widget.timeA,
+                      timeB: widget.timeB,
+                      golsA: _golsA,
+                      golsB: _golsB,
+                      periodoAtual: _periodoAtual,
+                      emPausaTecnica: _emPausaTecnica,
+                      timeEmPausaTecnica: _timeEmPausaTecnica,
+                      segundosPausaTecnica: _segundosPausaTecnica,
+                      podeUsarPausaTecnica: _podeUsarPausaTecnica,
+                      onPausaTecnicaIniciada: _iniciarPausaTecnica,
+                      onPausaTecnicaFinalizada: _finalizarPausaTecnica,
+                    ),
                     const SizedBox(height: 12),
-                    _buildFeedEventos(),
+                    GameEventsFeed(eventos: _eventosPartida),
                     const SizedBox(height: 12),
-                    _buildCronometroCard(),
+                    GameTimerCard(
+                      segundos: _segundos,
+                      rodando: _rodando,
+                      partidaJaIniciou: _partidaJaIniciou,
+                      periodoAtual: _periodoAtual,
+                      emPausaTecnica: _emPausaTecnica,
+                      timeEmPausaTecnica: _timeEmPausaTecnica,
+                      segundosPausaTecnica: _segundosPausaTecnica,
+                      segundosPausa: _segundosPausa,
+                      tempoProrrogacao: _tempoProrrogacao,
+                      temProrrogacao: _temProrrogacao,
+                      onToggleCronometro: _alternarCronometro,
+                      onFinalizarPrimeiroTempo: _finalizarPrimeiroTempo,
+                      onFinalizarSegundoTempo: _finalizarSegundoTempo,
+                      onAbrirModalProrrogacao: _abrirModalProrrogacao,
+                    ),
                     const SizedBox(height: 16),
-                    _buildCampoFutsal(),
+                    GameField(
+                      jogadoresA: _jogadoresA,
+                      jogadoresB: _jogadoresB,
+                      jogadorSelecionado: _jogadorSelecionado,
+                      onJogadorSelecionado: (jogador) {
+                        setState(() => _jogadorSelecionado = jogador);
+                      },
+                      onJogadorDoubleTap: _abrirDetalhesJogador,
+                    ),
                     const SizedBox(height: 16),
-                    _buildPainelAcoes(),
+                    GameActionsPanel(
+                      jogadorSelecionado: _jogadorSelecionado,
+                      periodoAtual: _periodoAtual,
+                      onRegistrarEvento: _registrarEvento,
+                    ),
                     const SizedBox(height: 20),
                     // Botão Gerar Súmula (só aparece quando partida finalizada)
                     if (_periodoAtual == PeriodoPartida.finalizada) ...[
@@ -962,617 +993,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                     const SizedBox(height: 30),
                   ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 1. PLACAR
-  Widget _buildPlacar() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildTimePlacar(widget.timeA, Icons.laptop, _golsA),
-          Container(width: 2, height: 80, color: Colors.grey[200]),
-          _buildTimePlacar(widget.timeB, Icons.add_moderator, _golsB),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimePlacar(String nome, IconData icon, int gols) {
-    bool isTimeA = nome == widget.timeA;
-    bool podeUsarPausaTecnica = _podeUsarPausaTecnica(isTimeA) && 
-                               (_periodoAtual == PeriodoPartida.primeiroTempo || 
-                                _periodoAtual == PeriodoPartida.segundoTempo ||
-                                _periodoAtual == PeriodoPartida.prorrogacao);
-                                
-    return Column(
-      children: [
-        Text(
-          nome,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Icon(icon, size: 30),
-        const SizedBox(height: 8),
-        Text(
-          gols.toString().padLeft(2, '0'),
-          style: const TextStyle(
-            fontSize: 60,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFFFF5733),
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Botão de pausa técnica
-        if (podeUsarPausaTecnica && !_emPausaTecnica)
-          GestureDetector(
-            onTap: () => _iniciarPausaTecnica(isTimeA),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.blue,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Pausa Técnica',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          )
-        // Se está em pausa técnica e é o time em pausa, mostra botão para finalizar
-        else if (_emPausaTecnica && _timeEmPausaTecnica == nome)
-          GestureDetector(
-            onTap: _finalizarPausaTecnica,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Finalizar (${60 - _segundosPausaTecnica}s)',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          )
-        // Se já usou pausa técnica, mostra indicador
-        else if (!podeUsarPausaTecnica && (_periodoAtual == PeriodoPartida.primeiroTempo || 
-                                          _periodoAtual == PeriodoPartida.segundoTempo ||
-                                          _periodoAtual == PeriodoPartida.prorrogacao))
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              'Pausa Usada',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          )
-        else
-          const SizedBox(height: 20), // Espaço para manter altura consistente
-      ],
-    );
-  }
-
-  // 2. FEED DE EVENTOS (SCROLL HORIZONTAL)
-  Widget _buildFeedEventos() {
-    return SizedBox(
-      height: 40,
-      child: _eventosPartida.isEmpty
-          ? const Center(
-              child: Text(
-                "Aguardando lances...",
-                style: TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _eventosPartida.length,
-              itemBuilder: (context, index) =>
-                  _eventoItem(_eventosPartida[index]),
-            ),
-    );
-  }
-
-  Widget _eventoItem(EventoPartida ev) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D2D2D),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(backgroundColor: ev.corTime, radius: 4),
-          const SizedBox(width: 8),
-          Text(
-            "${ev.descricao} - ${ev.horario}",
-            style: const TextStyle(color: Colors.white, fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 3. CRONÔMETRO E BOTÕES DE TEMPO
-  Widget _buildCronometroCard() {
-    // Se a partida estiver finalizada, mostra apenas mensagem
-    if (_periodoAtual == PeriodoPartida.finalizada) {
-      return Container(
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: const Color(0xFF252525),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Center(
-          child: Column(
-            children: [
-              Icon(
-                Icons.sports_soccer,
-                color: Colors.green,
-                size: 60,
-              ),
-              SizedBox(height: 16),
-              Text(
-                'PARTIDA ENCERRADA',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
-    // Interface normal durante a partida
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF252525),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Column(
-            children: [
-              IconButton(
-                onPressed: _alternarCronometro,
-                icon: Icon(
-                  _rodando ? Icons.pause_circle : Icons.play_circle,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-            ],
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  _formatarTempo(_segundos),
-                  style: const TextStyle(
-                    color: Color(0xFFD4FFD4),
-                    fontSize: 50,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                // Mostra o período atual e prorrogação configurada (não durante intervalo)
-                if (_periodoAtual == PeriodoPartida.prorrogacao)
-                  Text(
-                    'PRORROGAÇÃO (${_tempoProrrogacao ~/ 60}min)',
-                    style: const TextStyle(
-                      color: Colors.yellow,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                else if (_temProrrogacao && _periodoAtual != PeriodoPartida.intervalo)
-                  Text(
-                    'Prorrogação: ${_tempoProrrogacao ~/ 60}min configurada',
-                    style: const TextStyle(
-                      color: Colors.orange,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                // Mostra tempo de pausa se estiver pausado durante jogo, pausa técnica, ou "INTERVALO" se estiver no intervalo
-                if (!_rodando && _partidaJaIniciou)
-                  _emPausaTecnica
-                      ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'PAUSA TÉCNICA\n$_timeEmPausaTecnica (${60 - _segundosPausaTecnica}s)',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      : _periodoAtual == PeriodoPartida.intervalo
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'INTERVALO',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          : _formatarTempoPausa()
-                else
-                  const SizedBox(height: 14), // Espaço para manter altura
-              ],
-            ),
-          ),
-          Column(
-            children: [
-              // Botão "Fim 1º tempo" só aparece durante o primeiro tempo e não em pausa técnica
-              if (_periodoAtual == PeriodoPartida.primeiroTempo && !_emPausaTecnica)
-                _btnTempo("Fim 1º tempo", () => _finalizarPrimeiroTempo()),
-              if (_periodoAtual == PeriodoPartida.primeiroTempo && !_emPausaTecnica)
-                const SizedBox(height: 4),
-              
-              // Botão "Fim 2º tempo" só aparece durante o segundo tempo e não em pausa técnica
-              if (_periodoAtual == PeriodoPartida.segundoTempo && !_emPausaTecnica)
-                _btnTempo("Fim 2º tempo", () => _finalizarSegundoTempo()),
-              if (_periodoAtual == PeriodoPartida.segundoTempo && !_emPausaTecnica)
-                const SizedBox(height: 4),
-              
-              // Botão de prorrogação só aparece durante primeiro ou segundo tempo e não em pausa técnica
-              if ((_periodoAtual == PeriodoPartida.primeiroTempo || _periodoAtual == PeriodoPartida.segundoTempo) && !_emPausaTecnica)
-                _btnTempo(
-                  _temProrrogacao 
-                    ? "Prr: ${_tempoProrrogacao ~/ 60}min" 
-                    : "Dar Prorrogação", 
-                  () => _abrirModalProrrogacao()
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _btnTempo(String label, VoidCallback onPressed) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 100,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              // ignore: deprecated_member_use
-              color: Colors.black.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 2,
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 10, 
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 4. CAMPO DE JOGO
-  Widget _buildCampoFutsal() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double campoWidth = constraints.maxWidth;
-        const double campoHeight = 250;
-
-        return Container(
-          height: campoHeight,
-          width: campoWidth,
-          decoration: BoxDecoration(
-            color: const Color(0xFF8DBA94),
-            borderRadius: BorderRadius.circular(15),
-            // ignore: deprecated_member_use
-            border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
-          ),
-          child: Stack(
-            children: [
-              // Linhas do campo
-              Center(child: Container(width: 2, color: Colors.white54)),
-              Center(
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white54, width: 2),
-                  ),
-                ),
-              ),
-
-              // Renderiza todos os jogadores
-              ...[
-                ..._jogadoresA,
-                ..._jogadoresB,
-              ].map((jog) => _buildWidgetJogador(jog, campoWidth, campoHeight)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildWidgetJogador(JogadorFutsal jog, double w, double h) {
-    bool sel = _jogadorSelecionado == jog;
-    return Positioned(
-      left: jog.posicao.dx * w,
-      top: jog.posicao.dy * h,
-      child: GestureDetector(
-        onTap: () => setState(() => _jogadorSelecionado = jog),
-        onDoubleTap: () => _abrirDetalhesJogador(jog),
-        child: Column(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: EdgeInsets.all(sel ? 4 : 0),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: sel ? Border.all(color: Colors.white, width: 2) : null,
-              ),
-              child: CircleAvatar(
-                radius: 14,
-                backgroundColor: jog.corTime,
-                child: Text(
-                  "${jog.numero}",
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            Text(
-              jog.nome.split(' ')[0],
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 5. PAINEL DE AÇÕES (BOTÕES COLORIDOS)
-  Widget _buildPainelAcoes() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D2D2D),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          _btnAcaoFull(
-            "Gol",
-            const Color(0xFF00FFC2),
-            Colors.black,
-            onTap: () => _registrarEvento("Gol"),
-          ),
-          const SizedBox(height: 8),
-          _btnAcaoFull(
-            "Substituição",
-            Colors.white,
-            Colors.black,
-            onTap: () => _registrarEvento("Substituição"),
-          ),
-          const SizedBox(height: 12),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              "Cartões",
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _btnAcaoFull(
-            "Falta",
-            const Color(0xFFFF3D00),
-            Colors.white,
-            onTap: () => _registrarEvento("Falta"),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _btnAcaoFull(
-                  "Cartão Amarelo",
-                  Colors.yellow,
-                  Colors.black,
-                  onTap: () => _registrarEvento("Cartão Amarelo"),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _btnAcaoFull(
-                  "Cartão Vermelho",
-                  const Color(0xFFD32F2F),
-                  Colors.white,
-                  onTap: () => _registrarEvento("Cartão Vermelho"),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              "Saídas",
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ),
-          const SizedBox(height: 8),
-          
-          // --- INÍCIO DO GRID DE SAÍDAS AJUSTADO ---
-          // Linha 1: Tiro de Saída e Tiro Livre Direto
-          Row(
-            children: [
-              Expanded(child: _btnSaida("Tiro de saída", onTap: () => _registrarEvento("Tiro de Saída"))),
-              const SizedBox(width: 8),
-              Expanded(child: _btnSaida("Tiro livre direto", onTap: () => _registrarEvento("Tiro Livre Direto"))),
-            ],
-          ),
-          const SizedBox(height: 8),
-          
-          // Linha 2: Tiro Livre Indireto e Tiro Lateral
-          Row(
-            children: [
-              Expanded(child: _buildBtnSaidaAjustado("Tiro livre indireto", () => _registrarEvento("Tiro Livre Indireto"))),
-              const SizedBox(width: 8),
-              Expanded(child: _btnSaida("Tiro Lateral", onTap: () => _registrarEvento("Tiro Lateral"))),
-            ],
-          ),
-          const SizedBox(height: 8),
-          
-          // Linha 3: Tiro de Canto e Arremesso de Meta
-          Row(
-            children: [
-              Expanded(child: _btnSaida("Tiro de Canto", onTap: () => _registrarEvento("Tiro de Canto"))),
-              const SizedBox(width: 8),
-              Expanded(child: _btnSaida("Arremesso de Meta", onTap: () => _registrarEvento("Arremesso de Meta"))),
-            ],
-          ),
-          // --- FIM DO GRID DE SAÍDAS ---
-        ],
-      ),
-    );
-  }
-
-// Pequeno Helper para garantir que o texto não quebre o layout se for muito longo
-Widget _buildBtnSaidaAjustado(String texto, VoidCallback acao) {
-  return _btnSaida(
-    texto,
-    onTap: acao,
-  );
-}
-
-  Widget _btnAcaoFull(
-    String label,
-    Color fundo,
-    Color texto, {
-    VoidCallback? onTap,
-  }) {
-    bool isEnabled = _jogadorSelecionado != null;
-    Color backgroundColor = isEnabled ? fundo : Colors.grey[400]!;
-    Color textColor = isEnabled ? texto : Colors.grey[600]!;
-
-    return GestureDetector(
-      onTap: isEnabled && onTap != null ? onTap : null,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(10),
-          border: isEnabled
-              ? null
-              : Border.all(color: Colors.grey[300]!, width: 1),
-        ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (!isEnabled) Icon(Icons.person_off, color: textColor, size: 16),
-            if (!isEnabled) const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: isEnabled ? 14 : 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _btnSaida(String label, {VoidCallback? onTap}) {
-    bool isEnabled = _jogadorSelecionado != null;
-    Color backgroundColor = isEnabled ? Colors.white : Colors.grey[300]!;
-    Color textColor = isEnabled ? Colors.black : Colors.grey[600]!;
-
-    return GestureDetector(
-      onTap: isEnabled && onTap != null ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isEnabled ? Colors.grey[400]! : Colors.grey[300]!,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: textColor,
               ),
             ),
           ],

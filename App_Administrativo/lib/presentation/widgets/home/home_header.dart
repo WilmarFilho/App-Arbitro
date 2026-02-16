@@ -6,7 +6,7 @@ class HomeHeader extends StatelessWidget {
 
   const HomeHeader({
     super.key,
-    this.userName = '{Nome}',
+    this.userName = 'Wilmar',
   });
 
   Future<void> _logout(BuildContext context) async {
