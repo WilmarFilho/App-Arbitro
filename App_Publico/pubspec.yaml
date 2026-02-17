@@ -1,0 +1,63 @@
+name: kyarem_eventos_publico
+description: "Área publica de Campeonatos."
+publish_to: 'none'
+
+version: 1.0.0+4 
+
+environment:
+  sdk: '>=3.10.8 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- COMUNICAÇÃO ---
+  http: ^1.1.0
+  supabase_flutter: ^2.12.0
+
+  # --- INTERFACE E UTILITÁRIOS ---
+  cupertino_icons: ^1.0.8
+  flutter_svg: ^2.2.3
+  pdf: ^3.11.1
+  printing: ^5.13.2
+  path_provider: ^2.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: "^0.13.1"
+  flutter_native_splash: ^2.4.0
+
+# Configuração do Ícone (Fora do dev_dependencies)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png" 
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/icon.png"
+
+flutter_native_splash:
+  color: "#FFFFFF" # Cor do fundo da tela
+  image: assets/images/splash.png # Sua logo de 1024x1024
+  android_12:
+    image: assets/images/splash.png # Versão para Android novo (geralmente redonda)
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/envelope.svg
+    - assets/images/key.svg
+    - assets/images/meteor.svg
+    - assets/images/icon.png 
+    - assets/images/splash.png 
+
+  fonts:
+    - family: Bebas Neue
+      fonts:
+        - asset: assets/fonts/BebasNeue-Regular.ttf
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-SemiBold.ttf
