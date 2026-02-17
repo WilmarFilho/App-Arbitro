@@ -8,7 +8,6 @@ import '../../widgets/layout/bottom_navigation_widget.dart';
 import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/home/home_header.dart';
 import '../../widgets/home/partida_card.dart';
-import '../../widgets/home/option_button.dart';
 import '../../widgets/home/mock_list_item.dart';
 
 // --- CLASSE PARTIDA REMOVIDA DAQUI ---
