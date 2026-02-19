@@ -6,6 +6,7 @@ import '../../widgets/auth/auth_header.dart';
 import '../../widgets/auth/auth_input_label.dart';
 import '../../widgets/auth/auth_input_field.dart';
 import '../../widgets/auth/auth_button.dart';
+import '../../../services/auth_service.dart';
 import '../../widgets/auth/auth_feedback_message.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,8 +17,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  
+  final AuthService _authService = AuthService(); // Instancia o service
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _loading = false;
   String? _error;
   String? _success;
@@ -26,26 +30,24 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    _checkInitialSession();
     _loadSavedCredentials();
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
-      Future.microtask(() {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
-      });
+  }
+
+  void _checkInitialSession() {
+    if (_authService.currentSession != null) {
+      Future.microtask(() => Navigator.pushReplacementNamed(context, '/home'));
     }
   }
 
   Future<void> _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString('saved_email');
-    final savedPassword = prefs.getString('saved_password');
-    final remember = prefs.getBool('remember_me') ?? false;
-    if (remember && savedEmail != null && savedPassword != null) {
-      _emailController.text = savedEmail;
-      _passwordController.text = savedPassword;
-      setState(() => _remember = true);
+    final creds = await _authService.getSavedCredentials();
+    if (creds['remember']) {
+      setState(() {
+        _emailController.text = creds['email'];
+        _passwordController.text = creds['password'];
+        _remember = true;
+      });
     }
   }
 
@@ -238,14 +240,8 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // --- LÓGICA DE AUTENTICAÇÃO ---
-
   Future<void> _login() async {
-    // Normalização dos dados para evitar erros de teclado no celular físico
-    final email = _emailController.text.trim().toLowerCase();
-    final password = _passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() => _error = "Preencha todos os campos");
       return;
     }
@@ -256,58 +252,41 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: email,
-        password: password,
+      final user = await _authService.login(
+        email: _emailController.text,
+        password: _passwordController.text,
+        rememberMe: _remember,
       );
 
-      if (response.user != null) {
-        final prefs = await SharedPreferences.getInstance();
-        if (_remember) {
-          await prefs.setString('saved_email', email);
-          await prefs.setString('saved_password', password);
-          await prefs.setBool('remember_me', true);
-        } else {
-          await prefs.clear();
-        }
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
+      if (user != null && mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } on AuthException catch (e) {
-      // Diferencia erro de rede de erro de credencial
       setState(
         () => _error = e.message.contains("network")
-            ? "Sem conexão com a internet"
+            ? "Sem conexão"
             : "E-mail ou senha incorretos",
       );
     } catch (e) {
-      setState(() => _error = "Erro de conexão. Verifique sua internet.");
+      setState(() => _error = "Erro inesperado.");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _resetPassword() async {
-    final email = _emailController.text.trim().toLowerCase();
-    if (email.isEmpty) {
+    if (_emailController.text.isEmpty) {
       setState(() => _error = "Digite seu e-mail primeiro");
       return;
     }
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(
-        email,
-        redirectTo: 'apparbitro://reset-password',
-      );
+      await _authService.resetPassword(_emailController.text);
       setState(() {
-        _success = "E-mail de recuperação enviado!";
+        _success = "E-mail enviado!";
         _error = null;
       });
     } catch (e) {
-      setState(() {
-        _error = "Erro ao enviar e-mail";
-        _success = null;
-      });
+      setState(() => _error = "Erro ao enviar e-mail");
     }
   }
 }

@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-// 1. Importe o model centralizado (ajuste o caminho se necessário)
-import '../../../models/partida_model.dart'; 
-// 2. Certifique-se de que este import aponta para o arquivo de detalhes que criamos
-import '../game/partida_screen.dart'; 
+import 'package:kyarem_eventos_publico/presentation/widgets/home/partida_card.dart';
+import '../../../models/partida_model.dart';
+import '../../../services/partida_service.dart'; // Importe seu novo service
+import '../game/partida_screen.dart';
 
 import '../../widgets/layout/bottom_navigation_widget.dart';
 import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/home/home_header.dart';
-import '../../widgets/home/partida_card.dart';
-import '../../widgets/home/mock_list_item.dart';
+import '../../widgets/home/partida_list_item.dart';
 
-// --- CLASSE PARTIDA REMOVIDA DAQUI ---
-// Ela agora é lida do import '../../../models/partida_model.dart'
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,41 +18,51 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  List<Partida> _partidas = [];
-  bool _carregandoDados = false;
-  String _abaSelecionada = 'Jogos';
+  final PartidaService _partidaService = PartidaService();
+  
+  List<Partida> _partidasDestaque = [];
+  List<Partida> _historicoPartidas = [];
+  bool _carregandoDados = true;
   bool _verMeus = false;
 
   late AnimationController _animationController;
-  late List<Animation<double>> _fadeAnimations;
-  late List<Animation<Offset>> _slideAnimations;
+  // Animações agora serão geradas dinamicamente com base no tamanho da lista
+  late List<Animation<double>> _fadeAnimations = [];
+  late List<Animation<Offset>> _slideAnimations = [];
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    _initializeAnimations();
-    _carregarDadosSimulados();
+    _carregarDadosReais();
   }
 
-  void _initializeAnimations() {
-    _fadeAnimations = List.generate(3, (index) {
+  void _initializeAnimations(int count) {
+    _fadeAnimations = List.generate(count, (index) {
       return Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
           parent: _animationController,
-          curve: Interval(index * 0.2, (index * 0.2) + 0.8, curve: Curves.easeOutCubic),
+          curve: Interval(
+            (index * 0.1).clamp(0.0, 0.5),
+            (index * 0.1 + 0.5).clamp(0.0, 1.0),
+            curve: Curves.easeOut,
+          ),
         ),
       );
     });
 
-    _slideAnimations = List.generate(3, (index) {
-      return Tween<Offset>(begin: const Offset(0.0, 0.5), end: Offset.zero).animate(
+    _slideAnimations = List.generate(count, (index) {
+      return Tween<Offset>(begin: const Offset(0.3, 0.0), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _animationController,
-          curve: Interval(index * 0.2, (index * 0.2) + 0.8, curve: Curves.easeOutCubic),
+          curve: Interval(
+            (index * 0.1).clamp(0.0, 0.5),
+            (index * 0.1 + 0.5).clamp(0.0, 1.0),
+            curve: Curves.easeOutCubic,
+          ),
         ),
       );
     });
@@ -67,20 +74,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> _carregarDadosSimulados() async {
+  Future<void> _carregarDadosReais() async {
+    if (!mounted) return;
     setState(() => _carregandoDados = true);
-    await Future.delayed(const Duration(milliseconds: 800));
+    _animationController.reset();
 
-    // Usando o construtor do seu Partida centralizado
-    _partidas = [
-      Partida(id: '1', nomeTimeA: 'Engenharia', nomeTimeB: 'Direito', status: 'AO VIVO'),
-      Partida(id: '2', nomeTimeA: 'Medicina', nomeTimeB: 'Economia', status: '14:00'),
-      Partida(id: '3', nomeTimeA: 'Artes', nomeTimeB: 'Computação', status: 'FINALIZADO'),
-    ];
+    try {
+      // Busca dados em paralelo para maior rapidez
+      final resultados = await Future.wait([
+        _partidaService.listarPartidasDestaque(),
+        _partidaService.listarHistoricoPartidas(),
+      ]);
 
-    if (mounted) {
-      setState(() => _carregandoDados = false);
-      _animationController.forward();
+      if (mounted) {
+        setState(() {
+          _partidasDestaque = resultados[0];
+          _historicoPartidas = resultados[1];
+          _initializeAnimations(_partidasDestaque.length);
+          _carregandoDados = false;
+        });
+        _animationController.forward();
+      }
+    } catch (e) {
+      debugPrint("Erro ao carregar dados: $e");
+      if (mounted) setState(() => _carregandoDados = false);
     }
   }
 
@@ -91,27 +108,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           const GradientBackground(heightFactor: 0.85),
           SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                const HomeHeader(),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-                  child: Text(
-                    "PARTIDAS EM DESTAQUE",
-                    style: TextStyle(
-                      fontFamily: 'Bebas Neue',
-                      fontSize: 20,
-                      color: Color.fromARGB(255, 32, 32, 32),
-                      letterSpacing: 1.2,
+            child: RefreshIndicator(
+              onRefresh: _carregarDadosReais,
+              color: const Color(0xFFF85C39),
+              child: CustomScrollView( // Usando CustomScrollView para um scroll mais fluido
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  const SliverToBoxAdapter(child: HomeHeader()),
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 22, vertical: 15),
+                      child: Text(
+                        "PARTIDAS EM DESTAQUE",
+                        style: TextStyle(
+                          fontFamily: 'Bebas Neue',
+                          fontSize: 22,
+                          color: Color.fromARGB(255, 32, 32, 32),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                _buildCardsSection(),
-                const SizedBox(height: 25),
-                Expanded(child: _buildMainGamesSection()),
-              ],
+                  SliverToBoxAdapter(child: _buildCardsSection()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 25)),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildMainGamesSection(),
+                  ),
+                ],
+              ),
             ),
           ),
           const Align(
@@ -124,32 +150,54 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildCardsSection() {
+    if (_carregandoDados) {
+      return const SizedBox(
+        height: 160,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    if (_partidasDestaque.isEmpty) {
+      return Container(
+        height: 160,
+        margin: const EdgeInsets.symmetric(horizontal: 22),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: Text("Nenhuma partida ao vivo no momento", 
+            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+        ),
+      );
+    }
+
     return SizedBox(
-      height: 160,
-      child: _carregandoDados
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              physics: const BouncingScrollPhysics(),
-              itemCount: _partidas.length,
-              itemBuilder: (context, index) {
-                final partida = _partidas[index];
-                return PartidaCard(
-                  partida: partida,
-                  fadeAnimation: _fadeAnimations[index.clamp(0, 2)],
-                  slideAnimation: _slideAnimations[index.clamp(0, 2)],
-                  onTap: () => _navegarParaPartida(context, partida),
-                );
-              },
-            ),
+      height: 165,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        physics: const BouncingScrollPhysics(),
+        itemCount: _partidasDestaque.length,
+        itemBuilder: (context, index) {
+          final partida = _partidasDestaque[index];
+          return PartidaCard(
+            partida: partida,
+            fadeAnimation: _fadeAnimations.length > index 
+                ? _fadeAnimations[index] 
+                : AlwaysStoppedAnimation(1.0),
+            slideAnimation: _slideAnimations.length > index 
+                ? _slideAnimations[index] 
+                : AlwaysStoppedAnimation(Offset.zero),
+            onTap: () => _navegarParaPartida(context, partida),
+          );
+        },
+      ),
     );
   }
 
   Widget _buildMainGamesSection() {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 20),
       decoration: const BoxDecoration(
         color: Color(0xFFF8F9FA),
         borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
@@ -162,7 +210,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(_abaSelecionada.toUpperCase(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text("HISTÓRICO", 
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Bebas Neue')),
                 GestureDetector(
                   onTap: () => setState(() => _verMeus = !_verMeus),
                   child: Text(
@@ -176,13 +225,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 100),
-              itemCount: 10,
-              itemBuilder: (context, index) => MockListItem(sectionType: _abaSelecionada),
-            ),
-          ),
+          if (_carregandoDados)
+            const Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            )
+          else if (_historicoPartidas.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(40),
+              child: Text("Nenhuma partida finalizada recentemente."),
+            )
+          else
+            ..._historicoPartidas.map((partida) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+              child: PartidaListItem( // Widget para a lista vertical
+                partida: partida,
+                onTap: () => _navegarParaPartida(context, partida),
+              ),
+            )).toList(),
+          const SizedBox(height: 100), // Espaço para o bottom nav
         ],
       ),
     );
@@ -193,14 +254,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       context,
       MaterialPageRoute(
         builder: (_) => JogoDetalhesScreen(
-          timeA: partida.nomeTimeA,
-          timeB: partida.nomeTimeB,
-          status: partida.status,
-          // Se seu model centralizado tiver placar, use partida.placarA
-          placarA: "0", 
-          placarB: "0",
+          partidaId: partida.id, // Passe o ID para carregar os eventos lá
+          timeA: partida.equipeA?.nome ?? "Time A",
+          timeB: partida.equipeB?.nome ?? "Time B",
+          status: partida.status.toUpperCase(),
+          placarA: partida.placarA.toString(),
+          placarB: partida.placarB.toString(),
         ),
       ),
     );
   }
 }
+
+

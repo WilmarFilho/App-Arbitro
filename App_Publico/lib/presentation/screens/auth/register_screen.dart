@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../services/auth_service.dart';
 import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/auth/auth_header.dart';
 import '../../widgets/auth/auth_input_label.dart';
@@ -15,9 +16,11 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final AuthService _authService = AuthService(); // Instância do Service
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  
   bool _loading = false;
   String? _error;
   String? _success;
@@ -31,11 +34,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _signUp() async {
-    final email = _emailController.text.trim().toLowerCase();
+    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirm = _confirmPasswordController.text.trim();
 
-    // Validações básicas
+    // 1. Validações de UI/Negócio
     if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
       setState(() => _error = "Preencha todos os campos");
       return;
@@ -58,18 +61,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      await Supabase.instance.client.auth.signUp(
+      // 2. Chamada ao Service
+      await _authService.signUp(
         email: email,
         password: password,
       );
 
-      setState(() {
-        _success = "Conta criada! Verifique seu e-mail para confirmar.";
-      });
-      
-      // Opcional: Redirecionar após delay ou aguardar confirmação
-      // Future.delayed(const Duration(seconds: 3), () => Navigator.pop(context));
-
+      if (mounted) {
+        setState(() {
+          _success = "Conta criada! Verifique seu e-mail para confirmar.";
+        });
+      }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {

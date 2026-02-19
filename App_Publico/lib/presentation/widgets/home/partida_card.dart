@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-// Certifique-se de que o arquivo abaixo contenha a classe Partida
-import '../../../models/partida_model.dart'; 
+import '../../../models/partida_model.dart';
 
 class PartidaCard extends StatelessWidget {
-  // O Dart agora reconhecerá que este Partida vem do import acima
-  final Partida? partida;
+  final Partida partida; // Agora é obrigatório para exibir os dados reais
   final Animation<double> fadeAnimation;
   final Animation<Offset> slideAnimation;
   final VoidCallback? onTap;
 
   const PartidaCard({
     super.key,
-    this.partida,
+    required this.partida,
     required this.fadeAnimation,
     required this.slideAnimation,
     this.onTap,
@@ -26,10 +24,11 @@ class PartidaCard extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 260,
+            width: 280,
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
+              // Usando a cor que você definiu, mas com um leve gradiente para dar profundidade
               gradient: const LinearGradient(
                 colors: [Color(0xFFF3A68F), Color(0xFFF85C39)],
                 begin: Alignment.topLeft,
@@ -47,42 +46,65 @@ class PartidaCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'FUTSAL',
-                  style: TextStyle(
-                    fontFamily: 'Bebas Neue',
-                    color: Colors.white,
-                    fontSize: 20,
-                    letterSpacing: 1.5,
+                // Badge de Status (AO VIVO ou AGENDADO)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    partida.status == 'em_andamento' ? '● AO VIVO' : 'DESTAQUE',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 15),
+                
+                // Área dos Times e Placar
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildTeamInitial(partida?.nomeTimeA ?? "A"),
-                    const Text(
-                      'VS',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                    // Time A
+                    _buildTeamInfo(
+                      partida.equipeA?.atletica?.nome ?? "Time A",
+                      partida.equipeA?.atletica?.escudoUrl,
                     ),
-                    _buildTeamInitial(partida?.nomeTimeB ?? "B"),
+
+                    // Placar Central
+                    Column(
+                      children: [
+                        Text(
+                          "${partida.placarA} - ${partida.placarB}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Bebas Neue', // Usando a fonte do seu cabeçalho
+                          ),
+                        ),
+                        const Text(
+                          "VS",
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Time B
+                    _buildTeamInfo(
+                      partida.equipeB?.atletica?.nome ?? "Time B",
+                      partida.equipeB?.atletica?.escudoUrl,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  '${partida?.nomeTimeA ?? 'Time A'} x ${partida?.nomeTimeB ?? 'Time B'}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 5),
               ],
             ),
           ),
@@ -91,15 +113,36 @@ class PartidaCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTeamInitial(String nome) {
-    // Tratamento simples caso o nome chegue vazio
-    String inicial = nome.isNotEmpty ? nome[0].toUpperCase() : "?";
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: Colors.white.withOpacity(0.2),
-      child: Text(
-        inicial,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+  // Widget auxiliar para montar a coluna de cada time dentro do card
+  Widget _buildTeamInfo(String nome, String? logoUrl) {
+    return SizedBox(
+      width: 70,
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: Colors.white.withOpacity(0.3),
+            backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
+            child: logoUrl == null
+                ? Text(
+                    nome[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  )
+                : null,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            nome,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

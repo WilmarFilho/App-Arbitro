@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
-class JogoDetalhesScreen extends StatelessWidget {
+class JogoDetalhesScreen extends StatefulWidget {
+  final String partidaId; // Adicionado para receber o ID do banco
   final String timeA;
   final String timeB;
   final String placarA;
   final String placarB;
-  final String status; // "AO VIVO", "40:00", "FINALIZADO"
+  final String status;
 
   const JogoDetalhesScreen({
     super.key,
+    required this.partidaId, // Agora é obrigatório
     required this.timeA,
     required this.timeB,
     this.placarA = "0",
@@ -17,11 +19,19 @@ class JogoDetalhesScreen extends StatelessWidget {
   });
 
   @override
+  State<JogoDetalhesScreen> createState() => _JogoDetalhesScreenState();
+}
+
+class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
+  // No futuro, você carregará a lista de eventos real aqui usando o widget.partidaId
+  
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text("DETALHES DO JOGO", style: TextStyle(fontFamily: 'Bebas Neue', fontSize: 24)),
+        title: const Text("DETALHES DO JOGO", 
+          style: TextStyle(fontFamily: 'Bebas Neue', fontSize: 24)),
         centerTitle: true,
         backgroundColor: const Color(0xFFF85C39),
         foregroundColor: Colors.white,
@@ -53,11 +63,11 @@ class JogoDetalhesScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildTeamBadge(timeA, Colors.white),
+          _buildTeamBadge(widget.timeA, Colors.white), // Usando widget. para acessar os dados
           Column(
             children: [
               Text(
-                "$placarA - $placarB",
+                "${widget.placarA} - ${widget.placarB}",
                 style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               Container(
@@ -67,13 +77,13 @@ class JogoDetalhesScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  status,
+                  widget.status,
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
             ],
           ),
-          _buildTeamBadge(timeB, Colors.white),
+          _buildTeamBadge(widget.timeB, Colors.white),
         ],
       ),
     );
@@ -84,8 +94,9 @@ class JogoDetalhesScreen extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 35,
-          backgroundColor: Colors.white.withValues(alpha: 0.2),
-          child: Text(nome[0], style: const TextStyle(fontSize: 32, color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.white.withOpacity(0.2),
+          child: Text(nome.isNotEmpty ? nome[0] : "?", 
+            style: const TextStyle(fontSize: 32, color: Colors.white, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 10),
         Text(nome, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -94,12 +105,12 @@ class JogoDetalhesScreen extends StatelessWidget {
   }
 
   Widget _buildTimeline() {
-    // Mock de eventos para visualização
+    // Mantenha o mock por enquanto; logo faremos o fetch real usando widget.partidaId
     final eventos = [
-      {'min': "38'", 'tipo': 'GOL', 'desc': 'Gol de Engenharia (Camisa 10)', 'icon': Icons.sports_soccer, 'color': Colors.green},
-      {'min': "30'", 'tipo': 'CARTÃO', 'desc': 'Cartão Amarelo para Direito', 'icon': Icons.style, 'color': Colors.amber},
-      {'min': "20'", 'tipo': 'SUB', 'desc': 'Substituição em Engenharia', 'icon': Icons.swap_horiz, 'color': Colors.blue},
-      {'min': "05'", 'tipo': 'GOL', 'desc': 'Gol de Direito (Camisa 7)', 'icon': Icons.sports_soccer, 'color': Colors.green},
+      {'min': "38'", 'tipo': 'GOL', 'desc': 'Gol de ${widget.timeA} (Camisa 10)', 'icon': Icons.sports_soccer, 'color': Colors.green},
+      {'min': "30'", 'tipo': 'CARTÃO', 'desc': 'Cartão Amarelo para ${widget.timeB}', 'icon': Icons.style, 'color': Colors.amber},
+      {'min': "20'", 'tipo': 'SUB', 'desc': 'Substituição em ${widget.timeA}', 'icon': Icons.swap_horiz, 'color': Colors.blue},
+      {'min': "05'", 'tipo': 'GOL', 'desc': 'Gol de ${widget.timeB} (Camisa 7)', 'icon': Icons.sports_soccer, 'color': Colors.green},
     ];
 
     return Column(
@@ -121,7 +132,6 @@ class JogoDetalhesScreen extends StatelessWidget {
               return IntrinsicHeight(
                 child: Row(
                   children: [
-                    // Linha lateral da timeline
                     Column(
                       children: [
                         Container(
@@ -139,7 +149,6 @@ class JogoDetalhesScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(width: 20),
-                    // Conteúdo do Evento
                     Expanded(
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 10),
