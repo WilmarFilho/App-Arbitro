@@ -7,6 +7,7 @@ import 'presentation/screens/main/perfil_screen.dart';
 import 'presentation/screens/main/arbitros_screen.dart';
 import 'presentation/screens/main/campeonatos_screen.dart';
 import 'presentation/screens/main/configuracoes_screen.dart';
+import 'presentation/screens/auth/register_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -49,6 +50,7 @@ class MyApp extends StatelessWidget {
       initialRoute: session != null ? '/home' : '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreen(),
         '/reset-password': (context) => const ResetPasswordScreen(),
         '/perfil': (context) => const PerfilScreen(),
