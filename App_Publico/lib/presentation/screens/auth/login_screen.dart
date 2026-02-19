@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/auth/auth_header.dart';
 import '../../widgets/auth/auth_input_label.dart';

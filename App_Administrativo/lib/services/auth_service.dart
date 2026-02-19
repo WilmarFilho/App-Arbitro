@@ -29,18 +29,7 @@ class AuthService {
   Future<void> resetPassword(String email) async {
     await _supabase.auth.resetPasswordForEmail(
       email.trim().toLowerCase(),
-      redirectTo: 'apppublico://reset-password',
-    );
-  }
-
-  // --- REGISTRO DE USUÁRIO ---
-  Future<AuthResponse> signUp({
-    required String email,
-    required String password,
-  }) async {
-    return await _supabase.auth.signUp(
-      email: email.trim().toLowerCase(),
-      password: password.trim(),
+      redirectTo: 'apparbitro://reset-password',
     );
   }
 
