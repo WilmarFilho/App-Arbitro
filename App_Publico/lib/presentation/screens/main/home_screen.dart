@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:kyarem_eventos_publico/presentation/widgets/home/partida_card.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../models/partida_model.dart';
-import '../../../services/partida_service.dart'; // Importe seu novo service
-import '../game/partida_screen.dart';
+import '../../../services/partida_service.dart';
+import '../game/partida_screen.dart'; // Certifique-se que aponta para JogoDetalhesScreen
 
 import '../../widgets/layout/bottom_navigation_widget.dart';
 import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/home/home_header.dart';
 import '../../widgets/home/partida_list_item.dart';
-
+import '../../widgets/home/partida_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,17 +18,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  final SupabaseClient _supabase = Supabase.instance.client;
   final PartidaService _partidaService = PartidaService();
-  
+
   List<Partida> _partidasDestaque = [];
   List<Partida> _historicoPartidas = [];
   bool _carregandoDados = true;
   bool _verMeus = false;
 
   late AnimationController _animationController;
-  // Animações agora serão geradas dinamicamente com base no tamanho da lista
   late List<Animation<double>> _fadeAnimations = [];
   late List<Animation<Offset>> _slideAnimations = [];
+
+  // Stream que escuta qualquer mudança na tabela de partidas
+  late final Stream<List<Map<String, dynamic>>> _partidasRealtimeStream;
 
   @override
   void initState() {
@@ -37,7 +40,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
+
+    // Inicializa o Stream do Supabase focado na tabela 'partidas'
+    _partidasRealtimeStream = _supabase
+        .from('partidas')
+        .stream(primaryKey: ['id']);
+
     _carregarDadosReais();
+
+    // Ouvinte do Stream: Toda vez que algo mudar no banco, recarregamos as listas
+    // Isso garante que o placar mude na Home assim que mudar no banco
+    _partidasRealtimeStream.listen((_) {
+      _carregarDadosReais(isRefresh: true);
+    });
   }
 
   void _initializeAnimations(int count) {
@@ -74,13 +89,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> _carregarDadosReais() async {
+  /// Carrega os dados usando o Service (que já traz as relações de nomes de times)
+  Future<void> _carregarDadosReais({bool isRefresh = false}) async {
     if (!mounted) return;
-    setState(() => _carregandoDados = true);
-    _animationController.reset();
+    
+    // Só mostra o loading circular na primeira carga
+    if (!isRefresh) setState(() => _carregandoDados = true);
 
     try {
-      // Busca dados em paralelo para maior rapidez
       final resultados = await Future.wait([
         _partidaService.listarPartidasDestaque(),
         _partidaService.listarHistoricoPartidas(),
@@ -90,10 +106,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           _partidasDestaque = resultados[0];
           _historicoPartidas = resultados[1];
-          _initializeAnimations(_partidasDestaque.length);
+          
+          if (!isRefresh) {
+            _initializeAnimations(_partidasDestaque.length);
+          }
           _carregandoDados = false;
         });
-        _animationController.forward();
+        
+        if (!isRefresh) _animationController.forward();
       }
     } catch (e) {
       debugPrint("Erro ao carregar dados: $e");
@@ -111,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: RefreshIndicator(
               onRefresh: _carregarDadosReais,
               color: const Color(0xFFF85C39),
-              child: CustomScrollView( // Usando CustomScrollView para um scroll mais fluido
+              child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   const SliverToBoxAdapter(child: SizedBox(height: 20)),
@@ -120,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 22, vertical: 15),
                       child: Text(
-                        "PARTIDAS EM DESTAQUE",
+                        "PARTIDAS AO VIVO",
                         style: TextStyle(
                           fontFamily: 'Bebas Neue',
                           fontSize: 22,
@@ -150,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildCardsSection() {
-    if (_carregandoDados) {
+    if (_carregandoDados && _partidasDestaque.isEmpty) {
       return const SizedBox(
         height: 160,
         child: Center(child: CircularProgressIndicator(color: Colors.white)),
@@ -185,10 +205,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             partida: partida,
             fadeAnimation: _fadeAnimations.length > index 
                 ? _fadeAnimations[index] 
-                : AlwaysStoppedAnimation(1.0),
+                : const AlwaysStoppedAnimation(1.0),
             slideAnimation: _slideAnimations.length > index 
                 ? _slideAnimations[index] 
-                : AlwaysStoppedAnimation(Offset.zero),
+                : const AlwaysStoppedAnimation(Offset.zero),
             onTap: () => _navegarParaPartida(context, partida),
           );
         },
@@ -210,8 +230,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("HISTÓRICO", 
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Bebas Neue')),
+                const Text("HISTÓRICO", 
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Bebas Neue')),
                 GestureDetector(
                   onTap: () => setState(() => _verMeus = !_verMeus),
                   child: Text(
@@ -225,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
-          if (_carregandoDados)
+          if (_carregandoDados && _historicoPartidas.isEmpty)
             const Padding(
               padding: EdgeInsets.all(40),
               child: CircularProgressIndicator(),
@@ -238,12 +258,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           else
             ..._historicoPartidas.map((partida) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-              child: PartidaListItem( // Widget para a lista vertical
+              child: PartidaListItem(
                 partida: partida,
                 onTap: () => _navegarParaPartida(context, partida),
               ),
             )).toList(),
-          const SizedBox(height: 100), // Espaço para o bottom nav
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -254,7 +274,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       context,
       MaterialPageRoute(
         builder: (_) => JogoDetalhesScreen(
-          partidaId: partida.id, // Passe o ID para carregar os eventos lá
+          partidaId: partida.id,
+          modalidadeId: partida.modalidadeId,
           timeA: partida.equipeA?.nome ?? "Time A",
           timeB: partida.equipeB?.nome ?? "Time B",
           status: partida.status.toUpperCase(),
@@ -262,8 +283,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           placarB: partida.placarB.toString(),
         ),
       ),
-    );
+    ).then((_) => _carregarDadosReais(isRefresh: true)); 
+    // O .then() garante que ao voltar, a home atualize os dados uma última vez por segurança
   }
 }
-
-
