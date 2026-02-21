@@ -31,7 +31,7 @@ class MatchSummaryScreen extends StatelessWidget {
         body: Stack(
           children: [
             // Fundo com Gradiente
-            const GradientBackground(),
+            const GradientBackground(heightFactor: 0.9),
             // Conteúdo Principal
             SafeArea(
               child: Column(

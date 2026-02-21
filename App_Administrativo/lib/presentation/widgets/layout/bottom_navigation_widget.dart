@@ -26,7 +26,7 @@ class _BottomNavigationWidgetState extends State<BottomNavigationWidget> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               // ignore: deprecated_member_use
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withOpacity(0.7),
             ),
           ),
 

@@ -6,7 +6,7 @@ import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/home/home_header.dart';
 import '../../widgets/home/partida_card.dart';
 import '../../widgets/home/option_button.dart';
-import '../../widgets/home/home_list.dart'; // Certifique-se de criar este arquivo
+import '../../widgets/home/home_list.dart'; 
 import '../game/partida_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,16 +19,16 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final PartidaService _partidaService = PartidaService();
 
-  // Listas de dados reais
   List<Partida> _partidasDestaque = []; 
   List<dynamic> _itensListaInferior = []; 
 
-  // Controles de estado independentes
   bool _carregandoDestaques = false;
   bool _carregandoListaAba = false;
 
-  // Animações
-  late AnimationController _animationController;
+  // Controladores separados para evitar que o topo reanime ao trocar de aba
+  late AnimationController _mainController;   // Controla Header e Cards
+  late AnimationController _listController;   // Controla apenas a lista dinâmica inferior
+
   late List<Animation<double>> _fadeAnimations;
   late List<Animation<Offset>> _slideAnimations;
 
@@ -38,19 +38,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    
+    // Inicializa o controller principal (topo)
+    _mainController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
+
+    // Inicializa o controller da lista (abas)
+    _listController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+
     _initializeAnimations();
     _carregarTudo();
   }
 
   void _initializeAnimations() {
+    // As animações de entrada do topo agora são vinculadas ao _mainController
     _fadeAnimations = List.generate(3, (index) => 
       Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
-          parent: _animationController,
+          parent: _mainController,
           curve: Interval(index * 0.2, (index * 0.2) + 0.8, curve: Curves.easeOutCubic),
         ),
       ),
@@ -59,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _slideAnimations = List.generate(3, (index) => 
       Tween<Offset>(begin: const Offset(0.0, 0.4), end: Offset.zero).animate(
         CurvedAnimation(
-          parent: _animationController,
+          parent: _mainController,
           curve: Interval(index * 0.2, (index * 0.2) + 0.8, curve: Curves.easeOutCubic),
         ),
       ),
@@ -68,19 +78,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _mainController.dispose();
+    _listController.dispose();
     super.dispose();
   }
 
-  /// Carrega os destaques e a lista da aba simultaneamente na abertura
   Future<void> _carregarTudo() async {
     await Future.wait([
       _buscarPartidasDestaque(),
-      _buscarDadosAba(),
+      _buscarDadosAba(isFirstLoad: true), // Passamos flag para não resetar animação agora
     ]);
+    // Dispara a animação do topo apenas na carga inicial
+    _mainController.forward();
+    _listController.forward();
   }
 
-  /// Busca sempre as partidas para o carrossel superior
   Future<void> _buscarPartidasDestaque() async {
     if (mounted) setState(() => _carregandoDestaques = true);
     try {
@@ -92,13 +104,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         });
       }
     } catch (e) {
-      debugPrint("Erro ao buscar destaques: $e");
       if (mounted) setState(() => _carregandoDestaques = false);
     }
   }
 
-  /// Busca os dados específicos da aba (Jogos, Árbitros ou Campeonatos)
-  Future<void> _buscarDadosAba() async {
+  Future<void> _buscarDadosAba({bool isFirstLoad = false}) async {
     if (mounted) setState(() => _carregandoListaAba = true);
     try {
       final dados = await _partidaService.buscarDadosPorAba(_abaSelecionada);
@@ -107,21 +117,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _itensListaInferior = dados;
           _carregandoListaAba = false;
         });
-        _animationController.reset();
-        _animationController.forward();
+        
+        // Se não for a carga inicial da tela, resetamos apenas o controller da lista
+        if (!isFirstLoad) {
+          _listController.reset();
+          _listController.forward();
+        }
       }
     } catch (e) {
-      debugPrint("Erro ao buscar lista da aba: $e");
       if (mounted) setState(() => _carregandoListaAba = false);
     }
   }
 
-  /// Função chamada ao trocar de aba nos OptionButtons
   void _mudarAba(String novaAba) {
     if (_abaSelecionada == novaAba) return;
     setState(() {
       _abaSelecionada = novaAba;
-      _itensListaInferior = []; // Limpa para mostrar o loading específico da lista
+      _itensListaInferior = []; 
     });
     _buscarDadosAba();
   }
@@ -135,16 +147,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 30),
+                const SizedBox(height: 10),
+                // HomeHeader agora está fixo ou pode ser envolvido em FadeTransition se desejar
                 const HomeHeader(),
-                _buildCardsSection(), // Seção de Partidas (Fixo)
+                _buildCardsSection(), 
                 const SizedBox(height: 20),
-                _buildWhatDoYouWantSection(), // Botões de Seleção
+                _buildWhatDoYouWantSection(), 
                 Expanded(
-                  child: Transform.translate(
-                    offset: const Offset(0, 10),
-                    child: _buildMainGamesSection(), // Lista Dinâmica
-                  ),
+                  child: _buildMainGamesSection(), 
                 ),
               ],
             ),
@@ -155,7 +165,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Carrossel Horizontal - SEMPRE PARTIDAS
   Widget _buildCardsSection() {
     return SizedBox(
       height: 155,
@@ -183,7 +192,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Seção de filtros/abas
   Widget _buildWhatDoYouWantSection() {
     return Column(
       children: [
@@ -220,7 +228,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Lista Vertical - MUDA CONFORME ABA
   Widget _buildMainGamesSection() {
     return Container(
       width: double.infinity,
@@ -258,16 +265,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Expanded(
             child: _carregandoListaAba && _itensListaInferior.isEmpty
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 120),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: _itensListaInferior.length,
-                    itemBuilder: (context, index) {
-                      return HomeListItem(
-                        item: _itensListaInferior[index],
-                        type: _abaSelecionada,
-                      );
-                    },
+                : FadeTransition(
+                    opacity: _listController,
+                    child: SlideTransition(
+                      position: _listController.drive(
+                        Tween<Offset>(begin: const Offset(0.0, 0.05), end: Offset.zero)
+                      ),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 120),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _itensListaInferior.length,
+                        itemBuilder: (context, index) {
+                          return HomeListItem(
+                            item: _itensListaInferior[index],
+                            type: _abaSelecionada,
+                          );
+                        },
+                      ),
+                    ),
                   ),
           ),
         ],
@@ -284,6 +299,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           timeB: partida.equipeB?.atletica?.nome ?? 'Time B',
         ),
       ),
-    ).then((_) => _carregarTudo()); // Recarrega tudo ao voltar
+    ).then((_) => _carregarTudo());
   }
 }

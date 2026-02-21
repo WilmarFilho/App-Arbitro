@@ -25,7 +25,7 @@ class PartidaCard extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: 280,
-            margin: const EdgeInsets.only(right: 16, bottom: 5), // Pequena margem para sombra não cortar
+            margin: const EdgeInsets.only(right: 16, bottom: 18), // Pequena margem para sombra não cortar
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Padding vertical reduzido
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -47,7 +47,7 @@ class PartidaCard extends StatelessWidget {
               children: [
                 // Badge de Status (AO VIVO ou AGENDADO)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),

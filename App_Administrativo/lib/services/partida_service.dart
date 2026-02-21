@@ -15,7 +15,7 @@ class PartidaService {
             .from('profiles')
             .select('*')
             .eq('role', 'arbitro')
-            .order('nome');
+            .order('nome_exibicao');
         return (response as List).map((m) => Arbitro.fromMap(m)).toList();
       } else {
         // Campeonatos
