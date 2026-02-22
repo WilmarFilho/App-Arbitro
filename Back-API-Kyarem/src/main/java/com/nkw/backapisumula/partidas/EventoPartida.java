@@ -26,6 +26,13 @@ public class EventoPartida {
     private Atleta atleta;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "atleta_sai_id")
+    private Atleta atletaSai;
+
+    @Column(name = "is_substitution")
+    private Boolean isSubstitution = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipe_id")
     private Equipe equipe;
 
@@ -39,7 +46,7 @@ public class EventoPartida {
     @Column(name = "descricao_detalhada")
     private String descricaoDetalhada;
 
-    @Column(name = "criado_em")
+    @Column(name = "criado_em", insertable = false, updatable = false)
     private OffsetDateTime criadoEm;
 
     public UUID getId() { return id; }
@@ -50,6 +57,12 @@ public class EventoPartida {
 
     public Atleta getAtleta() { return atleta; }
     public void setAtleta(Atleta atleta) { this.atleta = atleta; }
+
+    public Atleta getAtletaSai() { return atletaSai; }
+    public void setAtletaSai(Atleta atletaSai) { this.atletaSai = atletaSai; }
+
+    public Boolean getIsSubstitution() { return isSubstitution; }
+    public void setIsSubstitution(Boolean isSubstitution) { this.isSubstitution = isSubstitution; }
 
     public Equipe getEquipe() { return equipe; }
     public void setEquipe(Equipe equipe) { this.equipe = equipe; }

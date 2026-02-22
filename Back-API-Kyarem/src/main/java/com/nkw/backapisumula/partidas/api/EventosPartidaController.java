@@ -48,6 +48,8 @@ public class EventosPartidaController {
                 .map(r -> new EventoPartidaService.AddEventoInput(
                         r.equipeId(),
                         r.atletaId(),
+                        r.atletaSaiId(),
+                        Boolean.TRUE.equals(r.isSubstitution()),
                         r.tipoEventoId(),
                         r.tempoCronometro(),
                         r.descricaoDetalhada()
@@ -68,16 +70,18 @@ public class EventosPartidaController {
     public record AddEventoRequest(
             @NotNull UUID equipeId,
             UUID atletaId,
+            UUID atletaSaiId,
+            Boolean isSubstitution,
             @NotNull UUID tipoEventoId,
             @NotBlank String tempoCronometro,
             String descricaoDetalhada
-    ) {}
-
-    public record EventoPartidaResponse(
+    ) {}public record EventoPartidaResponse(
             UUID id,
             UUID partidaId,
             UUID equipeId,
             UUID atletaId,
+            UUID atletaSaiId,
+            Boolean isSubstitution,
             UUID tipoEventoId,
             String tempoCronometro,
             String descricaoDetalhada,
@@ -89,6 +93,8 @@ public class EventosPartidaController {
                     ev.getPartida() == null ? null : ev.getPartida().getId(),
                     ev.getEquipe() == null ? null : ev.getEquipe().getId(),
                     ev.getAtleta() == null ? null : ev.getAtleta().getId(),
+                    ev.getAtletaSai() == null ? null : ev.getAtletaSai().getId(),
+                    ev.getIsSubstitution(),
                     ev.getTipoEvento() == null ? null : ev.getTipoEvento().getId(),
                     ev.getTempoCronometro(),
                     ev.getDescricaoDetalhada(),

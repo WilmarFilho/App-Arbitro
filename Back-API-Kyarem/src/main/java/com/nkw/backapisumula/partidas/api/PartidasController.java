@@ -51,7 +51,7 @@ public class PartidasController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('admin','delegado','arbitro')")
     public PartidaResponse create(@Valid @RequestBody CreatePartidaRequest req) {
-        Partida p = service.create(req.modalidadeId(), req.equipeAId(), req.equipeBId(), req.local());
+        Partida p = service.create(req.modalidadeId(), req.equipeAId(), req.equipeBId(), req.agendadoPara(), req.local());
         return PartidaResponse.from(p);
     }
 
@@ -63,7 +63,7 @@ public class PartidasController {
                                  @Valid @RequestBody UpdatePartidaRequest req) {
         UUID userId = UUID.fromString(jwt.getSubject());
         boolean arbitroOnly = isArbitroOnly(authentication);
-        Partida p = service.update(id, userId, arbitroOnly, req.modalidadeId(), req.equipeAId(), req.equipeBId(), req.local(), req.snapshotSumula(), req.sumulaPdfUrl());
+        Partida p = service.update(id, userId, arbitroOnly, req.modalidadeId(), req.equipeAId(), req.equipeBId(), req.agendadoPara(), req.local(), req.snapshotSumula(), req.sumulaPdfUrl());
         return PartidaResponse.from(p);
     }
 
@@ -98,6 +98,7 @@ public class PartidasController {
             @NotNull UUID modalidadeId,
             @NotNull UUID equipeAId,
             @NotNull UUID equipeBId,
+            OffsetDateTime agendadoPara,
             String local
     ) {}
 
@@ -105,6 +106,7 @@ public class PartidasController {
             UUID modalidadeId,
             UUID equipeAId,
             UUID equipeBId,
+            OffsetDateTime agendadoPara,
             String local,
             JsonNode snapshotSumula,
             String sumulaPdfUrl
@@ -116,6 +118,7 @@ public class PartidasController {
             UUID equipeAId,
             UUID equipeBId,
             String status,
+            OffsetDateTime agendadoPara,
             OffsetDateTime iniciadaEm,
             OffsetDateTime encerradaEm,
             String local,
@@ -132,6 +135,7 @@ public class PartidasController {
                     p.getEquipeA() == null ? null : p.getEquipeA().getId(),
                     p.getEquipeB() == null ? null : p.getEquipeB().getId(),
                     p.getStatus(),
+                    p.getAgendadoPara(),
                     p.getIniciadaEm(),
                     p.getEncerradaEm(),
                     p.getLocal(),

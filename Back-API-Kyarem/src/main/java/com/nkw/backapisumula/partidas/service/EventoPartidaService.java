@@ -31,6 +31,8 @@ public class EventoPartidaService {
     public record AddEventoInput(
             UUID equipeId,
             UUID atletaId,
+            UUID atletaSaiId,
+            boolean isSubstitution,
             UUID tipoEventoId,
             String tempoCronometro,
             String descricaoDetalhada
@@ -67,7 +69,7 @@ public class EventoPartidaService {
     /**
      * Cria eventos em lote para reduzir quantidade de requisições HTTP.
      *
-     * Regras/validações seguem a mesma lógica do {@link #add(UUID, UUID, boolean, UUID, UUID, UUID, String, String)}.
+     * Regras/validações seguem a mesma lógica do registro unitário de evento (método add).
      * A operação é transacional: se 1 evento falhar, nada é persistido.
      */
     @Transactional
@@ -83,7 +85,7 @@ public class EventoPartidaService {
         Partida partida = partidaRepo.findById(partidaId)
                 .orElseThrow(() -> new IllegalStateException("Partida não encontrada."));
 
-        if (!PartidaService.STATUS_EM_ANDAMENTO.equalsIgnoreCase(partida.getStatus())) {
+        if (!PartidaService.isStatusEmAndamento(partida.getStatus())) {
             throw new IllegalStateException("Só é possível registrar eventos quando a partida estiver em andamento.");
         }
 
@@ -113,6 +115,7 @@ public class EventoPartidaService {
             if (r.equipeId() != null) equipeIds.add(r.equipeId());
             if (r.tipoEventoId() != null) tipoEventoIds.add(r.tipoEventoId());
             if (r.atletaId() != null) atletaIds.add(r.atletaId());
+            if (r.atletaSaiId() != null) atletaIds.add(r.atletaSaiId());
         }
 
         Map<UUID, Equipe> equipes = new HashMap<>();
@@ -133,9 +136,14 @@ public class EventoPartidaService {
         // 2) Pré-valida inscrição (por equipe) para evitar N queries (partida tem no máx 2 equipes)
         Map<UUID, Set<UUID>> atletasPorEquipe = new HashMap<>();
         for (AddEventoInput r : reqs) {
-            if (r == null || r.atletaId() == null) continue;
+            if (r == null) continue;
             if (r.equipeId() == null) continue;
-            atletasPorEquipe.computeIfAbsent(r.equipeId(), k -> new HashSet<>()).add(r.atletaId());
+            if (r.atletaId() != null) {
+                atletasPorEquipe.computeIfAbsent(r.equipeId(), k -> new HashSet<>()).add(r.atletaId());
+            }
+            if (r.atletaSaiId() != null) {
+                atletasPorEquipe.computeIfAbsent(r.equipeId(), k -> new HashSet<>()).add(r.atletaSaiId());
+            }
         }
 
         Map<UUID, Set<UUID>> inscritosPorEquipe = new HashMap<>();
@@ -186,6 +194,16 @@ public class EventoPartidaService {
                 throw new IllegalStateException("Tipo de evento não pertence ao esporte da modalidade da partida.");
             }
 
+            boolean isSub = r.isSubstitution();
+            if (isSub) {
+                if (r.atletaId() == null || r.atletaSaiId() == null) {
+                    throw new IllegalStateException("Substituição requer atletaId (entra) e atletaSaiId (sai).");
+                }
+                if (Objects.equals(r.atletaId(), r.atletaSaiId())) {
+                    throw new IllegalStateException("Em substituição, atletaId e atletaSaiId devem ser diferentes.");
+                }
+            }
+
             Atleta atleta = null;
             if (r.atletaId() != null) {
                 atleta = atletas.get(r.atletaId());
@@ -199,10 +217,25 @@ public class EventoPartidaService {
                 }
             }
 
+            Atleta atletaSai = null;
+            if (r.atletaSaiId() != null) {
+                atletaSai = atletas.get(r.atletaSaiId());
+                if (atletaSai == null) {
+                    throw new IllegalStateException("Atleta (sai) não encontrado: " + r.atletaSaiId());
+                }
+                Set<UUID> inscritos = inscritosPorEquipe.getOrDefault(r.equipeId(), Set.of());
+                if (!inscritos.contains(r.atletaSaiId())) {
+                    throw new IllegalStateException("Atleta (sai) não está inscrito nesta equipe.");
+                }
+            }
+
+
             EventoPartida ev = new EventoPartida();
             ev.setPartida(partida);
             ev.setEquipe(equipe);
             ev.setAtleta(atleta);
+            ev.setAtletaSai(atletaSai);
+            ev.setIsSubstitution(isSub);
             ev.setTipoEvento(tipoEvento);
             ev.setTempoCronometro(r.tempoCronometro());
             ev.setDescricaoDetalhada(r.descricaoDetalhada());
@@ -236,6 +269,8 @@ public class EventoPartidaService {
                              boolean isArbitroOnly,
                              UUID equipeId,
                              UUID atletaId,
+                             UUID atletaSaiId,
+                             boolean isSubstitution,
                              UUID tipoEventoId,
                              String tempoCronometro,
                              String descricaoDetalhada) {
@@ -243,7 +278,7 @@ public class EventoPartidaService {
         Partida partida = partidaRepo.findById(partidaId)
                 .orElseThrow(() -> new IllegalStateException("Partida não encontrada."));
 
-        if (!PartidaService.STATUS_EM_ANDAMENTO.equalsIgnoreCase(partida.getStatus())) {
+        if (!PartidaService.isStatusEmAndamento(partida.getStatus())) {
             throw new IllegalStateException("Só é possível registrar eventos quando a partida estiver em andamento.");
         }
 
@@ -271,6 +306,15 @@ public class EventoPartidaService {
             throw new IllegalStateException("Tipo de evento não pertence ao esporte da modalidade da partida.");
         }
 
+        if (isSubstitution) {
+            if (atletaId == null || atletaSaiId == null) {
+                throw new IllegalStateException("Substituição requer atletaId (entra) e atletaSaiId (sai).");
+            }
+            if (Objects.equals(atletaId, atletaSaiId)) {
+                throw new IllegalStateException("Em substituição, atletaId e atletaSaiId devem ser diferentes.");
+            }
+        }
+
         Atleta atleta = null;
         if (atletaId != null) {
             atleta = atletaRepo.findById(atletaId)
@@ -283,10 +327,22 @@ public class EventoPartidaService {
             }
         }
 
+        Atleta atletaSai = null;
+        if (atletaSaiId != null) {
+            atletaSai = atletaRepo.findById(atletaSaiId)
+                    .orElseThrow(() -> new IllegalStateException("Atleta (sai) não encontrado."));
+            boolean inscritoSai = inscritoRepo.existsByEquipe_IdAndAtleta_Id(equipeId, atletaSaiId);
+            if (!inscritoSai) {
+                throw new IllegalStateException("Atleta (sai) não está inscrito nesta equipe.");
+            }
+        }
+
         EventoPartida ev = new EventoPartida();
         ev.setPartida(partida);
         ev.setEquipe(equipe);
         ev.setAtleta(atleta);
+        ev.setAtletaSai(atletaSai);
+        ev.setIsSubstitution(isSubstitution);
         ev.setTipoEvento(tipoEvento);
         ev.setTempoCronometro(tempoCronometro);
         ev.setDescricaoDetalhada(descricaoDetalhada);

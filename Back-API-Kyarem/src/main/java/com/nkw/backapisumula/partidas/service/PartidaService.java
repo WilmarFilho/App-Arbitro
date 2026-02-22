@@ -27,10 +27,20 @@ import java.util.*;
 public class PartidaService {
 
     public static final String STATUS_AGENDADA = "agendada";
-    public static final String STATUS_EM_ANDAMENTO = "em_andamento";
-    public static final String STATUS_ENCERRADA = "encerrada";
+    public static final String STATUS_PRIMEIRO_TEMPO = "1° tempo";
+    public static final String STATUS_INTERVALO = "intervalo";
+    public static final String STATUS_SEGUNDO_TEMPO = "2° tempo";
+    public static final String STATUS_PRORROGACAO = "prorrogação";
+    public static final String STATUS_FINALIZADA = "finalizada";
 
-    private static final Set<String> VALID_STATUS = Set.of(STATUS_AGENDADA, STATUS_EM_ANDAMENTO, STATUS_ENCERRADA);
+    private static final Set<String> VALID_STATUS = Set.of(
+            STATUS_AGENDADA,
+            STATUS_PRIMEIRO_TEMPO,
+            STATUS_INTERVALO,
+            STATUS_SEGUNDO_TEMPO,
+            STATUS_PRORROGACAO,
+            STATUS_FINALIZADA
+    );
 
     private final PartidaRepository repo;
     private final ModalidadeRepository modalidadeRepo;
@@ -71,8 +81,8 @@ public class PartidaService {
                 .map(pa -> pa.getPartida())
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing((Partida p) -> {
-                    // ordem: em_andamento primeiro, depois agendada, depois encerrada
-                    if (STATUS_EM_ANDAMENTO.equalsIgnoreCase(p.getStatus())) return 0;
+                    // ordem: em andamento primeiro, depois agendada, depois finalizada
+                    if (isStatusEmAndamento(p.getStatus())) return 0;
                     if (STATUS_AGENDADA.equalsIgnoreCase(p.getStatus())) return 1;
                     return 2;
                 }).thenComparing(p -> Optional.ofNullable(p.getIniciadaEm()).orElse(OffsetDateTime.MIN), Comparator.reverseOrder()))
@@ -83,7 +93,7 @@ public class PartidaService {
         return repo.findById(id).orElseThrow(() -> new IllegalStateException("Partida não encontrada."));
     }
 
-    public Partida create(UUID modalidadeId, UUID equipeAId, UUID equipeBId, String local) {
+    public Partida create(UUID modalidadeId, UUID equipeAId, UUID equipeBId, OffsetDateTime agendadoPara, String local) {
         if (equipeAId.equals(equipeBId)) {
             throw new IllegalStateException("Equipe A e Equipe B não podem ser a mesma.");
         }
@@ -104,6 +114,7 @@ public class PartidaService {
         p.setEquipeA(equipeA);
         p.setEquipeB(equipeB);
         p.setLocal(local);
+        p.setAgendadoPara(agendadoPara);
         p.setStatus(STATUS_AGENDADA);
         p.setPlacarA(0);
         p.setPlacarB(0);
@@ -111,11 +122,11 @@ public class PartidaService {
         return repo.save(p);
     }
 
-    public Partida update(UUID partidaId, UUID userId, boolean isArbitroOnly, UUID modalidadeId, UUID equipeAId, UUID equipeBId, String local, JsonNode snapshotSumula, String sumulaPdfUrl) {
+    public Partida update(UUID partidaId, UUID userId, boolean isArbitroOnly, UUID modalidadeId, UUID equipeAId, UUID equipeBId, OffsetDateTime agendadoPara, String local, JsonNode snapshotSumula, String sumulaPdfUrl) {
         Partida p = getOrThrow(partidaId);
 
         String st = p.getStatus() == null ? "" : p.getStatus().trim().toLowerCase();
-        if (STATUS_EM_ANDAMENTO.equals(st)) {
+        if (isStatusEmAndamento(st)) {
             throw new IllegalStateException("Não é possível editar uma partida em andamento.");
         }
 
@@ -128,7 +139,7 @@ public class PartidaService {
         }
 
         // Pós-jogo: permitir salvar súmula quando encerrada
-        if (STATUS_ENCERRADA.equals(st)) {
+        if (STATUS_FINALIZADA.equals(st)) {
             if (snapshotSumula != null) {
                 p.setSnapshotSumula(snapshotSumula);
             }
@@ -144,7 +155,7 @@ public class PartidaService {
 
         // Caso esteja agendada, permite editar dados básicos
         if (!STATUS_AGENDADA.equals(st)) {
-            throw new IllegalStateException("Status inválido para edição.");
+            throw new IllegalStateException("Só é possível editar dados básicos quando a partida estiver agendada.");
         }
 
 
@@ -175,6 +186,7 @@ public class PartidaService {
 
         validateEquipeCompatibilidade(modalidade, equipeA, equipeB);
 
+        if (agendadoPara != null) p.setAgendadoPara(agendadoPara);
         if (local != null) p.setLocal(local);
 
         return repo.save(p);
@@ -183,10 +195,10 @@ public class PartidaService {
     public Partida start(UUID partidaId, UUID userId, boolean isArbitroOnly) {
         Partida p = getOrThrow(partidaId);
 
-        if (STATUS_ENCERRADA.equalsIgnoreCase(p.getStatus())) {
+        if (isStatusFinalizada(p.getStatus())) {
             throw new IllegalStateException("Partida já encerrada.");
         }
-        if (STATUS_EM_ANDAMENTO.equalsIgnoreCase(p.getStatus())) {
+        if (isStatusEmAndamento(p.getStatus())) {
             throw new IllegalStateException("Partida já está em andamento.");
         }
 
@@ -194,7 +206,7 @@ public class PartidaService {
             throw new IllegalStateException("Árbitro não está atribuído a esta partida.");
         }
 
-        p.setStatus(STATUS_EM_ANDAMENTO);
+        p.setStatus(STATUS_PRIMEIRO_TEMPO);
         p.setIniciadaEm(OffsetDateTime.now());
         return repo.save(p);
     }
@@ -202,7 +214,7 @@ public class PartidaService {
     public Partida end(UUID partidaId, UUID userId, boolean isArbitroOnly) {
         Partida p = getOrThrow(partidaId);
 
-        if (!STATUS_EM_ANDAMENTO.equalsIgnoreCase(p.getStatus())) {
+        if (!isStatusEmAndamento(p.getStatus())) {
             throw new IllegalStateException("Só é possível encerrar uma partida em andamento.");
         }
 
@@ -210,7 +222,7 @@ public class PartidaService {
             throw new IllegalStateException("Árbitro não está atribuído a esta partida.");
         }
 
-        p.setStatus(STATUS_ENCERRADA);
+        p.setStatus(STATUS_FINALIZADA);
         p.setEncerradaEm(OffsetDateTime.now());
 
         // Ao encerrar, geramos automaticamente um snapshot da súmula.
@@ -245,6 +257,7 @@ public class PartidaService {
         root.put("iniciadaEm", p.getIniciadaEm() != null ? p.getIniciadaEm().toString() : null);
         root.put("encerradaEm", p.getEncerradaEm() != null ? p.getEncerradaEm().toString() : null);
         root.put("local", p.getLocal());
+        root.put("agendadoPara", p.getAgendadoPara() != null ? p.getAgendadoPara().toString() : null);
         root.put("placarA", p.getPlacarA() != null ? p.getPlacarA() : 0);
         root.put("placarB", p.getPlacarB() != null ? p.getPlacarB() : 0);
 
@@ -297,10 +310,16 @@ public class PartidaService {
                 eq.put("id", e.getEquipe().getId().toString());
                 eq.put("nomeEquipe", e.getEquipe().getNomeEquipe());
             }
+            ev.put("isSubstitution", e.getIsSubstitution() != null ? e.getIsSubstitution() : false);
             if (e.getAtleta() != null) {
                 ObjectNode at = ev.putObject("atleta");
                 at.put("id", e.getAtleta().getId().toString());
                 at.put("nome", e.getAtleta().getNome());
+            }
+            if (e.getAtletaSai() != null) {
+                ObjectNode atSai = ev.putObject("atletaSai");
+                atSai.put("id", e.getAtletaSai().getId().toString());
+                atSai.put("nome", e.getAtletaSai().getNome());
             }
             ev.put("criadoEm", e.getCriadoEm() != null ? e.getCriadoEm().toString() : null);
         });
@@ -317,11 +336,27 @@ public class PartidaService {
         return null;
     }
 
+
+    public static boolean isStatusFinalizada(String status) {
+        if (status == null) return false;
+        return STATUS_FINALIZADA.equalsIgnoreCase(status.trim());
+    }
+
+    /**
+     * Consideramos "em andamento" qualquer status válido que não seja agendada/finalizada.
+     * Isso cobre: 1° tempo, intervalo, 2° tempo, prorrogação.
+     */
+    public static boolean isStatusEmAndamento(String status) {
+        if (status == null) return false;
+        String s = status.trim().toLowerCase(Locale.ROOT);
+        return !STATUS_AGENDADA.equals(s) && !STATUS_FINALIZADA.equals(s);
+    }
+
     public void validateStatus(String status) {
         if (status == null) return;
         String s = status.trim().toLowerCase(Locale.ROOT);
         if (!VALID_STATUS.contains(s)) {
-            throw new IllegalStateException("Status inválido. Use: agendada, em_andamento, encerrada.");
+            throw new IllegalStateException("Status inválido. Use: agendada, 1° tempo, intervalo, 2° tempo, prorrogação, finalizada.");
         }
     }
 

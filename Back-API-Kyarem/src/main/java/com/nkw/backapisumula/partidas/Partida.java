@@ -36,6 +36,9 @@ public class Partida {
     @Column(name = "iniciada_em")
     private OffsetDateTime iniciadaEm;
 
+    @Column(name = "agendado_para")
+    private OffsetDateTime agendadoPara;
+
     private String local;
 
     @Column(name = "placar_a")
@@ -77,6 +80,9 @@ public class Partida {
 
     public OffsetDateTime getIniciadaEm() { return iniciadaEm; }
     public void setIniciadaEm(OffsetDateTime iniciadaEm) { this.iniciadaEm = iniciadaEm; }
+
+    public OffsetDateTime getAgendadoPara() { return agendadoPara; }
+    public void setAgendadoPara(OffsetDateTime agendadoPara) { this.agendadoPara = agendadoPara; }
 
     public String getLocal() { return local; }
     public void setLocal(String local) { this.local = local; }
