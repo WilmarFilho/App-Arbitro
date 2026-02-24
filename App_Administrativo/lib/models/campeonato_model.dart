@@ -15,11 +15,23 @@ class Campeonato {
 
   factory Campeonato.fromMap(Map<String, dynamic> map) {
     return Campeonato(
-      id: map['id'],
-      nome: map['nome'],
-      nivel: map['nivel_campeonato'],
-      dataInicio: map['data_inicio'] != null ? DateTime.parse(map['data_inicio']) : null,
-      dataFim: map['data_fim'] != null ? DateTime.parse(map['data_fim']) : null,
+      id: map['id'] ?? '',
+      nome: map['nome'] ?? 'Sem nome',
+      
+      // Suporta 'nivelCampeonato' (API) ou 'nivel_campeonato' (Supabase)
+      nivel: map['nivelCampeonato'] ?? map['nivel_campeonato'],
+      
+      // Tratamento de data para 'dataInicio' (API) ou 'data_inicio' (Supabase)
+      dataInicio: _parseDate(map['dataInicio'] ?? map['data_inicio']),
+      
+      // Tratamento de data para 'dataFim' (API) ou 'data_fim' (Supabase)
+      dataFim: _parseDate(map['dataFim'] ?? map['data_fim']),
     );
+  }
+
+  // Função auxiliar estática para evitar erro de parse caso a data venha mal formatada ou nula
+  static DateTime? _parseDate(dynamic date) {
+    if (date == null) return null;
+    return DateTime.tryParse(date.toString());
   }
 }

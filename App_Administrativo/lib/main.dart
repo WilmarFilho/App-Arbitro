@@ -26,7 +26,7 @@ Future<void> main() async {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsZ25hY2t1emZoa2hsb2VtdGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MjUyNzIsImV4cCI6MjA4NjIwMTI3Mn0.8jq8Anq419bzO94DqCrCcNAJSOsiqGQ8UiFsEO6ibH4', // sua chave
   );
 
-  // Adicione isso na linha 39 do seu main.dart
+  // DEBUG PRA VER TOKEN
   Future.delayed(Duration(seconds: 2), () {
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {

@@ -53,7 +53,7 @@ class PartidaCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    partida.status == 'em_andamento' ? '● AO VIVO' : 'DESTAQUE',
+                    partida.status,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 9, // Reduzido ligeiramente
@@ -70,7 +70,7 @@ class PartidaCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _buildTeamInfo(
-                      partida.equipeA?.atletica?.nome ?? "Time A",
+                      partida.equipeA?.nome ?? "Time A",
                       partida.equipeA?.atletica?.escudoUrl,
                     ),
 
@@ -99,7 +99,7 @@ class PartidaCard extends StatelessWidget {
                     ),
 
                     _buildTeamInfo(
-                      partida.equipeB?.atletica?.nome ?? "Time B",
+                      partida.equipeB?.nome ?? "Time B",
                       partida.equipeB?.atletica?.escudoUrl,
                     ),
                   ],

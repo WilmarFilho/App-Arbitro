@@ -777,22 +777,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     });
   }
 
-  // Método específico para registrar eventos de pausa
-  void _registrarEventoPausa(String tipo) {
-    final evento = EventoPartida(
-      tipo: tipo,
-      jogadorNome: '', // Eventos de pausa não precisam de jogador
-      jogadorNumero: 0,
-      corTime: Colors.grey, // Cor neutra para eventos de pausa
-      horario: _formatarTempo(_segundos),
-      timestamp: DateTime.now(),
-    );
-
-    setState(() {
-      _eventosPartida.insert(0, evento);
-    });
-  }
-
   Future<void> _salvarEventoNoBanco(String tipo, JogadorFutsal jogador) async {
     // Exemplo:
     // await _partidaRepository.registrarEvento(

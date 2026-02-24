@@ -16,7 +16,7 @@ class PartidaService {
 
   final _supabase = Supabase.instance.client;
 
-  // ADICIONE O CONSTRUTOR PARA CONFIGURAR O TOKEN AUTOMÁTICO
+  // CONSTRUCTOR PARA SEMPRE INCLUIR O TOKEN NA REQUISIÇÃO
   PartidaService() {
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -43,7 +43,8 @@ class PartidaService {
   Future<List<dynamic>> buscarDadosPorAba(String aba) async {
     try {
       if (aba == 'Jogos') {
-        return await listarPartidasDoDia();
+        // AGORA BUSCA TODAS AS PARTIDAS GLOBAIS
+        return await listarTodasPartidas();
       } else if (aba == 'Árbitros') {
         final response = await _supabase
             .from('profiles')
@@ -53,19 +54,40 @@ class PartidaService {
         return (response as List).map((m) => Arbitro.fromMap(m)).toList();
       } else {
         // Campeonatos
-        final response = await _supabase
-            .from('campeonatos')
-            .select('*')
-            .order('nome');
-        return (response as List).map((m) => Campeonato.fromMap(m)).toList();
+        // Endpoint global da API (sem o sufixo /minhas)
+        final response = await _dio.get('/campeonatos');
+
+        if (response.statusCode == 200) {
+          final List<dynamic> data = response.data;
+          // 2. Mapeie para o Model de Campeonato que ajustamos antes
+          return data.map((m) => Campeonato.fromMap(m)).toList();
+        }
+        return [];
       }
     } catch (e) {
       return [];
     }
   }
 
-  /// Busca as partidas do árbitro logado via API
-  Future<List<Partida>> listarPartidasDoDia() async {
+  /// BUSCA TODAS PARTIDAS
+  Future<List<Partida>> listarTodasPartidas() async {
+    try {
+      // Endpoint global da API (sem o sufixo /minhas)
+      final response = await _dio.get('/partidas');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((m) => Partida.fromMap(m)).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      debugPrint('Erro ao buscar todas as partidas via API: ${e.message}');
+      return [];
+    }
+  }
+
+  /// BUSCA PARTIDAS DO USUÁRIO ( ARBITRO )
+  Future<List<Partida>> listarPartidasMinhas() async {
     try {
       final response = await _dio.get('/partidas/minhas');
 
@@ -158,5 +180,3 @@ class PartidaService {
         .toList();
   }
 }
-
-

@@ -33,10 +33,7 @@ class Partida {
 
     return Partida(
       id: map['id'] ?? '',
-      // Chave exata do seu JSON: "modalidadeId"
       modalidadeId: map['modalidadeId'] ?? '',
-      // O status na raiz é "agendada", mas na súmula está "encerrada".
-      // Geralmente a súmula é mais precisa para partidas em andamento/finalizadas.
       status: sumula?['status'] ?? map['status'] ?? 'agendada',
       placarA: map['placarA'] ?? 0,
       placarB: map['placarB'] ?? 0,

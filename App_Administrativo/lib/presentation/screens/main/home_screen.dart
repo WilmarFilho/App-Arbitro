@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _buscarPartidasDestaque() async {
     if (mounted) setState(() => _carregandoDestaques = true);
     try {
-      final partidas = await _partidaService.listarPartidasDoDia();
+      final partidas = await _partidaService.listarPartidasMinhas();
       if (mounted) {
         setState(() {
           _partidasDestaque = partidas;

@@ -30,11 +30,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _checkInitialSession();
     _loadSavedCredentials();
-
-    // Se o app abrir e já estiver logado, ele printa o token no console na hora
-    if (_authService.currentSession != null) {
-      _authService.printJwtForSwagger();
-    }
   }
 
   void _checkInitialSession() {

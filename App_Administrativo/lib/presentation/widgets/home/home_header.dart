@@ -2,12 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeHeader extends StatelessWidget {
-  final String userName;
+  const HomeHeader({super.key});
 
-  const HomeHeader({
-    super.key,
-    this.userName = 'Wilmar',
-  });
+  // Função para buscar o nome na tabela 'profiles'
+  Future<String> _fetchUserName() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return 'Usuário';
+
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select('nome_exibicao')
+          .eq('id', user.id)
+          .single();
+
+      return data['nome_exibicao'] ?? 'Árbitro';
+    } catch (e) {
+      debugPrint('Erro ao buscar nome do perfil: $e');
+      return 'Árbitro';
+    }
+  }
 
   Future<void> _logout(BuildContext context) async {
     await Supabase.instance.client.auth.signOut();
@@ -23,25 +37,36 @@ class HomeHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Olá $userName,',
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 20,
-                ),
-              ),
-              const Text(
-                'Seja bem vindo!',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          // FutureBuilder para carregar o nome do banco de dados
+          FutureBuilder<String>(
+            future: _fetchUserName(),
+            builder: (context, snapshot) {
+              // Enquanto carrega, podemos mostrar um placeholder ou o nome padrão
+              final displayUserName = snapshot.data ?? '...';
+              
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Olá $displayUserName,',
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 20,
+                      color: Color(0xFF1B1B1B),
+                    ),
+                  ),
+                  const Text(
+                    'Seja bem vindo!',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1B1B1B),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           Row(
             children: [
