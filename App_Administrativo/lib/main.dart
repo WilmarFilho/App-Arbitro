@@ -21,17 +21,34 @@ Future<void> main() async {
   }
 
   await Supabase.initialize(
-    url: 'https://hlgnackuzfhkhloemtey.supabase.co', 
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsZ25hY2t1emZoa2hsb2VtdGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MjUyNzIsImV4cCI6MjA4NjIwMTI3Mn0.8jq8Anq419bzO94DqCrCcNAJSOsiqGQ8UiFsEO6ibH4', // sua chave
+    url: 'https://hlgnackuzfhkhloemtey.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsZ25hY2t1emZoa2hsb2VtdGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MjUyNzIsImV4cCI6MjA4NjIwMTI3Mn0.8jq8Anq419bzO94DqCrCcNAJSOsiqGQ8UiFsEO6ibH4', // sua chave
   );
+
+  // Adicione isso na linha 39 do seu main.dart
+  Future.delayed(Duration(seconds: 2), () {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null) {
+      debugPrint('---------------------------------');
+      debugPrint('TOKEN_PARA_SWAGGER:');
+      debugPrint(session.accessToken);
+      debugPrint('---------------------------------');
+    } else {
+      debugPrint('NENHUMA SESSÃO ATIVA - FAÇA LOGIN NO APP');
+    }
+  });
 
   // Escutando mudanças de autenticação
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     final AuthChangeEvent event = data.event;
-    
+
     // Se o evento for de recuperação de senha, mandamos o usuário para a tela de reset
     if (event == AuthChangeEvent.passwordRecovery) {
-      navigatorKey.currentState?.pushNamedAndRemoveUntil('/reset-password', (route) => false);
+      navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        '/reset-password',
+        (route) => false,
+      );
     }
   });
 
@@ -44,7 +61,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = Supabase.instance.client.auth.currentSession;
-    
+
     return MaterialApp(
       title: 'Kyarem Eventos',
       navigatorKey: navigatorKey,

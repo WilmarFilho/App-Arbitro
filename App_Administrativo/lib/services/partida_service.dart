@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/rendering.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/partida_model.dart';
 import '../models/arbitro_model.dart';
@@ -5,7 +7,38 @@ import '../models/campeonato_model.dart';
 import '../models/tipo_evento_model.dart';
 
 class PartidaService {
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://api.kyarem.nkwflow.com/api/v1',
+      connectTimeout: const Duration(seconds: 5),
+    ),
+  );
+
   final _supabase = Supabase.instance.client;
+
+  // ADICIONE O CONSTRUTOR PARA CONFIGURAR O TOKEN AUTOMÁTICO
+  PartidaService() {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final token = _supabase.auth.currentSession?.accessToken;
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+            debugPrint('DIO: Enviando Token no Header');
+          } else {
+            debugPrint('DIO: Nenhum token encontrado na sessão');
+          }
+          return handler.next(options);
+        },
+        onError: (e, handler) {
+          debugPrint(
+            'DIO ERROR[${e.response?.statusCode}]: ${e.response?.data}',
+          );
+          return handler.next(e);
+        },
+      ),
+    );
+  }
 
   Future<List<dynamic>> buscarDadosPorAba(String aba) async {
     try {
@@ -31,27 +64,27 @@ class PartidaService {
     }
   }
 
-  /// Busca as partidas diretamente do banco via Service
+  /// Busca as partidas do árbitro logado via API
   Future<List<Partida>> listarPartidasDoDia() async {
     try {
-      // Fazemos a query complexa aqui, incluindo os joins necessários
-      final response = await _supabase
-          .from('partidas')
-          .select('''
-            *,
-            equipe_a:equipes!partidas_equipe_a_id_fkey(*, atleticas(*)),
-            equipe_b:equipes!partidas_equipe_b_id_fkey(*, atleticas(*))
-          ''')
-          .order('iniciada_em', ascending: true);
+      final response = await _dio.get('/partidas/minhas');
 
-      // Converte a lista de Maps em uma lista de objetos Partida
-      final partidas = (response as List)
-          .map((m) => Partida.fromMap(m))
-          .toList();
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
 
-      // Regra de negócio: Você pode filtrar apenas as que não foram encerradas, por exemplo
-      return partidas;
+        debugPrint('oi Dados recebidos da API: $data');
+
+        // Converte o JSON da API para a lista de objetos Partida
+        return data.map((m) => Partida.fromMap(m)).toList();
+      }
+
+      return [];
+    } on DioException catch (e) {
+      // Aqui você pode tratar erros de conexão ou 401 (não autorizado)
+      debugPrint('Erro ao buscar partidas da API: ${e.message}');
+      return [];
     } catch (e) {
+      debugPrint('Erro inesperado: $e');
       return [];
     }
   }
@@ -125,3 +158,5 @@ class PartidaService {
         .toList();
   }
 }
+
+

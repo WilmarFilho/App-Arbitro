@@ -18,8 +18,8 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.0
 
   # --- COMUNICAÇÃO ---
-  http: ^1.1.0
   supabase_flutter: ^2.12.0
+  dio: ^5.4.3
 
   # --- INTERFACE E UTILITÁRIOS ---
   cupertino_icons: ^1.0.8
@@ -35,7 +35,7 @@ dev_dependencies:
   flutter_launcher_icons: "^0.13.1"
   flutter_native_splash: ^2.4.0
 
-# Configuração do Ícone (Fora do dev_dependencies)
+# CONFIGURAÇÕES DE FERRAMENTAS (Nível Raiz)
 flutter_launcher_icons:
   android: true
   ios: true
@@ -44,10 +44,10 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/images/icon.png"
 
 flutter_native_splash:
-  color: "#FFFFFF" # Cor do fundo da tela
-  image: assets/images/splash.png # Sua logo de 1024x1024
+  color: "#FFFFFF"
+  image: assets/images/splash.png
   android_12:
-    image: assets/images/splash.png # Versão para Android novo (geralmente redonda)
+    image: assets/images/splash.png
 
 flutter:
   uses-material-design: true

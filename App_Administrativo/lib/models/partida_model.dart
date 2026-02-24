@@ -28,19 +28,38 @@ class Partida {
   });
 
   factory Partida.fromMap(Map<String, dynamic> map) {
+    // A API agrupa os dados detalhados dentro de snapshotSumula
+    final sumula = map['snapshotSumula'] as Map<String, dynamic>?;
+
     return Partida(
-      id: map['id'],
-      modalidadeId: map['modalidade_id'],
-      status: map['status'] ?? 'agendada',
-      placarA: map['placar_a'] ?? 0,
-      placarB: map['placar_b'] ?? 0,
-      local: map['local'],
-      iniciadaEm: map['iniciada_em'] != null ? DateTime.parse(map['iniciada_em']) : null,
-      encerradaEm: map['encerrada_em'] != null ? DateTime.parse(map['encerrada_em']) : null,
-      agendadaPara: map['agendada_para'] != null ? DateTime.parse(map['agendada_para']) : null,
-      // No Supabase, as equipes virão como objetos aninhados se usarmos o select correto
-      equipeA: map['equipe_a'] != null ? Equipe.fromMap(map['equipe_a']) : null,
-      equipeB: map['equipe_b'] != null ? Equipe.fromMap(map['equipe_b']) : null,
+      id: map['id'] ?? '',
+      // Chave exata do seu JSON: "modalidadeId"
+      modalidadeId: map['modalidadeId'] ?? '',
+      // O status na raiz é "agendada", mas na súmula está "encerrada".
+      // Geralmente a súmula é mais precisa para partidas em andamento/finalizadas.
+      status: sumula?['status'] ?? map['status'] ?? 'agendada',
+      placarA: map['placarA'] ?? 0,
+      placarB: map['placarB'] ?? 0,
+      local: map['local'] ?? '',
+
+      // Tratamento de Datas (API usa camelCase e ISO8601)
+      iniciadaEm: map['iniciadaEm'] != null
+          ? DateTime.tryParse(map['iniciadaEm'])
+          : null,
+      encerradaEm: map['encerradaEm'] != null
+          ? DateTime.tryParse(map['encerradaEm'])
+          : null,
+      agendadaPara: map['agendadoPara'] != null
+          ? DateTime.tryParse(map['agendadoPara'])
+          : null,
+
+      // Mapeamento das Equipes (Estão dentro de snapshotSumula)
+      equipeA: sumula?['equipeA'] != null
+          ? Equipe.fromMap(sumula!['equipeA'])
+          : null,
+      equipeB: sumula?['equipeB'] != null
+          ? Equipe.fromMap(sumula!['equipeB'])
+          : null,
     );
   }
 }

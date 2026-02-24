@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,6 +44,18 @@ class AuthService {
   // --- LOGOUT ---
   Future<void> logout() async {
     await _supabase.auth.signOut();
+  }
+
+  // --- UTILITÁRIO PARA DEBUG/SWAGGER ---
+  void printJwtForSwagger() {
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      debugPrint('\n--- COPY THIS TO SWAGGER AUTHORIZE ---');
+      debugPrint('Bearer ${session.accessToken}');
+      debugPrint('---------------------------------------\n');
+    } else {
+      debugPrint('Nenhuma sessão ativa encontrada.');
+    }
   }
 
   // --- PERSISTÊNCIA LOCAL (SharedPreferences) ---
