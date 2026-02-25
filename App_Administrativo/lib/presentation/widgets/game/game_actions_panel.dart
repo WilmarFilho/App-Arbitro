@@ -57,6 +57,7 @@ class GameActionsPanel extends StatelessWidget {
       "prorrogacao_dada",
       "partida_pausada",
       "acrescimo_dado",
+      "intervalo"
     ];
     // Filtra o que sobrou (ex: Tiro Lateral, Escanteio, etc) e ignora os excluídos
     final outrosEventos = tiposDeEventos.where((e) {

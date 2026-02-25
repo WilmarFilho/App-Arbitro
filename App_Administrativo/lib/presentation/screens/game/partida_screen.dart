@@ -307,9 +307,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     switch (_periodoAtual) {
       case PeriodoPartida.primeiroTempo:
         if (_segundos >= duracaoPrimeiroTempo) {
-          if (_temProrrogacao && !_estaNaProrrogacao) {
-            // Iniciar prorrogação do primeiro tempo
-            _iniciarProrrogacao("Prorrogação do 1º Tempo");
+          if (_temAcrescimo && !_estaNoAcrescimo) {
+            // Iniciar acrescimo do primeiro tempo
+            _iniciarAcrescimo();
+            _emAcrescimo = true;
           } else {
             _finalizarPrimeiroTempo();
           }
@@ -317,10 +318,18 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         break;
       case PeriodoPartida.segundoTempo:
         if (_segundos >= duracaoSegundoTempo) {
-          if (_temProrrogacao && !_estaNaProrrogacao) {
-            // Iniciar prorrogação do segundo tempo
-            _iniciarProrrogacao("Prorrogação do 2º Tempo");
-          } else {
+          // 1º Prioridade: Se tem acréscimo e ainda não iniciou, inicia o acréscimo
+          if (_temAcrescimo && !_estaNoAcrescimo) {
+            _iniciarAcrescimo();
+            _emAcrescimo = true;
+          }
+          // 2º Prioridade: Se não tem acréscimo (ou já acabou) e tem prorrogação
+          else if (_temProrrogacao && !_estaNaProrrogacao) {
+            _iniciarProrrogacao();
+            _emProrrogacao = true;
+          }
+          // 3º Prioridade: Finaliza se não houver mais nada pendente
+          else {
             _finalizarPartida();
           }
         }
@@ -336,7 +345,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   }
 
   // Inicia período de prorrogação
-  void _iniciarProrrogacao(String descricao) {
+  void _iniciarProrrogacao() {
     _timer?.cancel();
     setState(() {
       _rodando = false;
@@ -345,7 +354,20 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       _segundos = 0; // Reset do cronômetro para a prorrogação
     });
 
-    _registrarEventoOficial(descricao);
+    _registrarEventoSistemico('PRORROGACAO');
+  }
+
+  // Inicia período de prorrogação
+  void _iniciarAcrescimo() {
+    _timer?.cancel();
+    setState(() {
+      _rodando = false;
+      _estaNoAcrescimo = true;
+      _periodoAtual = PeriodoPartida.acrescimo;
+      _segundos = 0; // Reset do cronômetro para o acrescimo
+    });
+
+    _registrarEventoSistemico('ACRESCIMO');
   }
 
   // Finaliza o primeiro tempo automaticamente ou manualmente
@@ -362,7 +384,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       _estaNaProrrogacao = false;
     });
 
-    _registrarEventoOficial('Fim do 1º Tempo');
+    _registrarEventoSistemico('FIM_1_TEMPO');
+    _registrarEventoSistemico('INTERVALO');
   }
 
   // Finaliza o segundo tempo e a partida
@@ -375,7 +398,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       _periodoAtual = PeriodoPartida.finalizada;
     });
 
-    _registrarEventoOficial('Fim da Partida');
+    _registrarEventoSistemico('FIM_PARTIDA');
   }
 
   // Finaliza o segundo tempo manualmente
@@ -430,6 +453,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                 return;
               }
 
+              _registrarEventoSistemico('PRORROGACAO_DADA');
+
               setState(() {
                 _tempoProrrogacao = minutos * 60; // Converter para segundos
                 _temProrrogacao = true;
@@ -441,6 +466,78 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                 SnackBar(
                   content: Text(
                     'Prorrogação de $minutos minutos configurada com sucesso!',
+                  ),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Abre modal para selecionar tempo de prorrogação
+  void _abrirModalAcrescimo() {
+    final TextEditingController controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Definir Acrescimo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Digite o tempo de acrescimo em minutos:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Minutos',
+                border: OutlineInputBorder(),
+                hintText: 'Ex: 5, 10, 15...',
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final String input = controller.text.trim();
+              final int? minutos = int.tryParse(input);
+
+              if (minutos == null || minutos <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Por favor, digite um número válido de minutos!',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              _registrarEventoSistemico('ACRESCIMO_DADO');
+
+              setState(() {
+                _tempoAcrescimo = minutos * 60; // Converter para segundos
+                _temAcrescimo = true;
+              });
+
+              Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Acrescimo de $minutos minutos configurada com sucesso!',
                   ),
                   backgroundColor: Colors.green,
                 ),
@@ -949,10 +1046,13 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                           segundosPausa: _segundosPausa,
                           tempoProrrogacao: _tempoProrrogacao,
                           temProrrogacao: _temProrrogacao,
+                          temAcrescimo: _temAcrescimo,
+                          tempoAcrescimo: _tempoAcrescimo,
                           onToggleCronometro: _alternarCronometro,
                           onFinalizarPrimeiroTempo: _finalizarPrimeiroTempo,
                           onFinalizarSegundoTempo: _finalizarSegundoTempo,
                           onAbrirModalProrrogacao: _abrirModalProrrogacao,
+                          onAbrirModalAcrescimo: _abrirModalAcrescimo,
                         ),
 
                         const SizedBox(height: 16),
