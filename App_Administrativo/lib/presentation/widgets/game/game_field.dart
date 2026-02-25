@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:kyarem_eventos/models/atleta_model.dart';
 import '../../screens/game/partida_screen.dart';
 
 /// Widget do campo de futsal com os jogadores posicionados
 class GameField extends StatelessWidget {
-  final List<JogadorFutsal> jogadoresA;
-  final List<JogadorFutsal> jogadoresB;
-  final JogadorFutsal? jogadorSelecionado;
-  final void Function(JogadorFutsal?) onJogadorSelecionado;
-  final void Function(JogadorFutsal) onJogadorDoubleTap;
+  final List<Atleta> jogadoresA;
+  final List<Atleta> jogadoresB;
+  final Atleta? jogadorSelecionado;
+  final void Function(Atleta?) onJogadorSelecionado;
+  final void Function(Atleta) onJogadorDoubleTap;
 
   const GameField({
     super.key,
@@ -49,8 +50,10 @@ class GameField extends StatelessWidget {
                 ),
               ),
               // Renderiza todos os jogadores
-              ...[...jogadoresA, ...jogadoresB]
-                  .map((jog) => _buildPlayerWidget(jog, campoWidth, campoHeight)),
+              ...[
+                ...jogadoresA,
+                ...jogadoresB,
+              ].map((jog) => _buildPlayerWidget(jog, campoWidth, campoHeight)),
             ],
           ),
         );
@@ -58,12 +61,12 @@ class GameField extends StatelessWidget {
     );
   }
 
-  Widget _buildPlayerWidget(JogadorFutsal jogador, double width, double height) {
+  Widget _buildPlayerWidget(Atleta jogador, double width, double height) {
     bool selecionado = jogadorSelecionado == jogador;
-    
+
     return Positioned(
-      left: jogador.posicao.dx * width,
-      top: jogador.posicao.dy * height,
+      left: jogador.posicao!.dx * width,
+      top: jogador.posicao!.dy * height,
       child: GestureDetector(
         onTap: () {
           // Se o jogador já está selecionado, limpa a seleção

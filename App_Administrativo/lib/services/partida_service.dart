@@ -16,24 +16,39 @@ class PartidaService {
 
   final _supabase = Supabase.instance.client;
 
-  // CONSTRUCTOR PARA SEMPRE INCLUIR O TOKEN NA REQUISIÇÃO
   PartidaService() {
     _dio.interceptors.add(
       InterceptorsWrapper(
-        onRequest: (options, handler) {
-          final token = _supabase.auth.currentSession?.accessToken;
+        onRequest: (options, handler) async {
+          // O método .session dispara internamente a lógica de refresh se necessário.
+          final session = _supabase.auth.currentSession;
+          final token = session?.accessToken;
+
           if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
-            debugPrint('DIO: Enviando Token no Header');
+            // Verifica se o token está expirado manualmente (opcional, mas seguro)
+            if (session!.isExpired) {
+              debugPrint('DIO: Token expirado, tentando refresh...');
+              // Força o refresh da sessão
+              final response = await _supabase.auth.refreshSession();
+              final newToken = response.session?.accessToken;
+              if (newToken != null) {
+                options.headers['Authorization'] = 'Bearer $newToken';
+              }
+            } else {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+            debugPrint('DIO: Token injetado');
           } else {
-            debugPrint('DIO: Nenhum token encontrado na sessão');
+            debugPrint('DIO: Usuário sem sessão ativa');
           }
           return handler.next(options);
         },
-        onError: (e, handler) {
-          debugPrint(
-            'DIO ERROR[${e.response?.statusCode}]: ${e.response?.data}',
-          );
+        onError: (DioException e, handler) async {
+          // Se mesmo assim der 401, o usuário precisa relogar ou o refresh falhou
+          if (e.response?.statusCode == 401) {
+            debugPrint('DIO ERROR: Token inválido ou expirado (401)');
+            // Aqui você poderia disparar um evento para deslogar o usuário
+          }
           return handler.next(e);
         },
       ),
@@ -93,8 +108,6 @@ class PartidaService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
-
-        debugPrint('oi Dados recebidos da API: $data');
 
         // Converte o JSON da API para a lista de objetos Partida
         return data.map((m) => Partida.fromMap(m)).toList();
@@ -165,6 +178,28 @@ class PartidaService {
       // 3. Converte para sua lista de modelos
       return eventosData.map((e) => TipoEventoEsporte.fromJson(e)).toList();
     } catch (e) {
+      return [];
+    }
+  }
+
+  /// Busca os atletas inscritos de uma equipe específica via API
+  Future<List<dynamic>> buscarInscritos(String equipeId) async {
+    try {
+      // Faz a chamada para o seu endpoint específico
+      final response = await _dio.get('/equipes/$equipeId/inscritos');
+
+      if (response.statusCode == 200) {
+        // O retorno já é uma lista de objetos conforme seu exemplo JSON
+        return response.data as List<dynamic>;
+      }
+
+      return [];
+    } on DioException catch (e) {
+      debugPrint('Erro Dio ao buscar inscritos: ${e.message}');
+      // Opcional: tratar erros específicos como 404 ou 500
+      return [];
+    } catch (e) {
+      debugPrint('Erro inesperado ao buscar inscritos: $e');
       return [];
     }
   }

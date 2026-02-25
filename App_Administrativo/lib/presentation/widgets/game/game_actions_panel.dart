@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:kyarem_eventos/models/atleta_model.dart';
 import '../../screens/game/partida_screen.dart';
 
 /// Widget do painel de ações da partida (gols, cartões, substituições, etc)
 class GameActionsPanel extends StatelessWidget {
-  final JogadorFutsal? jogadorSelecionado;
+  final Atleta? jogadorSelecionado;
   final PeriodoPartida periodoAtual;
   final void Function(String) onRegistrarEvento;
 

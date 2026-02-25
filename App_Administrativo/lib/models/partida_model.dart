@@ -6,6 +6,8 @@ class Partida {
   final String status;
   final int placarA;
   final int placarB;
+  final String equipeAId;
+  final String equipeBId;
   final String? local;
   final DateTime? iniciadaEm;
   final DateTime? encerradaEm;
@@ -17,6 +19,8 @@ class Partida {
     required this.id,
     required this.modalidadeId,
     required this.status,
+    required this.equipeAId,
+    required this.equipeBId,
     this.placarA = 0,
     this.placarB = 0,
     this.local,
@@ -35,6 +39,8 @@ class Partida {
       id: map['id'] ?? '',
       modalidadeId: map['modalidadeId'] ?? '',
       status: sumula?['status'] ?? map['status'] ?? 'agendada',
+      equipeAId: map['equipeAId'],
+      equipeBId: map['equipeBId'],
       placarA: map['placarA'] ?? 0,
       placarB: map['placarB'] ?? 0,
       local: map['local'] ?? '',

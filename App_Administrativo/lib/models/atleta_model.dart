@@ -1,34 +1,39 @@
+import 'package:flutter/material.dart';
+
 class Atleta {
   final String id;
-  final String atleticaId; // Nome da variável
+  final String atletaId;
+  final String? equipeId;
+  final String? atleticaId;
   final String nome;
-  final DateTime? criadoEm;
-  final String? nomeAtletica;
+  final int numero;
+  final bool ativo;
+  
+  // Campos que não vem da API
+  Offset? posicao;
+  Color? corTime;
 
   Atleta({
     required this.id,
-    required this.atleticaId, 
+    required this.atletaId,
+    this.equipeId,
+    this.atleticaId,
     required this.nome,
-    this.criadoEm,
-    this.nomeAtletica,
+    required this.numero,
+    required this.ativo,
+    this.posicao,
+    this.corTime,
   });
 
   factory Atleta.fromMap(Map<String, dynamic> map) {
     return Atleta(
-      id: map['id'],
-      atleticaId: map['atletica_id'], // Aqui mapeia a chave do banco (com underline) para a variável (sem underline)
-      nome: map['nome'],
-      criadoEm: map['criado_em'] != null 
-          ? DateTime.parse(map['criado_em']) 
-          : null,
-      nomeAtletica: map['atleticas']?['nome'],
+      id: map['id'] ?? '',
+      equipeId: map['equipeId'],
+      atletaId: map['atletaId'] ?? '',
+      atleticaId: map['atleticaId'],
+      nome: map['atletaNome'] ?? 'Sem Nome',
+      numero: map['numeroCamisa'] ?? 0,
+      ativo: map['ativo'] ?? false,
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'atletica_id': atleticaId,
-      'nome': nome,
-    };
   }
 }

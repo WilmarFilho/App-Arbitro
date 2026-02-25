@@ -27,7 +27,7 @@ Future<void> main() async {
   );
 
   // DEBUG PRA VER TOKEN
-  Future.delayed(Duration(seconds: 2), () {
+  Future.delayed(const Duration(seconds: 2), () {
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
       debugPrint('---------------------------------');

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:kyarem_eventos/models/partida_model.dart';
 import 'package:kyarem_eventos/models/tipo_evento_model.dart';
+import 'package:kyarem_eventos/models/atleta_model.dart';
 import 'package:kyarem_eventos/presentation/screens/game/resumo_partida_screen.dart';
 import 'package:kyarem_eventos/services/partida_service.dart';
 import '../../widgets/layout/gradient_background.dart';
@@ -11,17 +12,16 @@ import '../../widgets/game/game_timer_card.dart';
 import '../../widgets/game/game_field.dart';
 import '../../widgets/game/game_actions_panel.dart';
 
-// Enum para controlar os períodos da partida
 enum PeriodoPartida {
   naoIniciada,
   primeiroTempo,
   intervalo,
   segundoTempo,
   prorrogacao,
+  acrescimo,
   finalizada,
 }
 
-// Modelo para representar um evento no feed
 class EventoPartida {
   final String tipo;
   final String jogadorNome;
@@ -32,9 +32,9 @@ class EventoPartida {
 
   EventoPartida({
     required this.tipo,
+    required this.corTime,
     required this.jogadorNome,
     required this.jogadorNumero,
-    required this.corTime,
     required this.horario,
     required this.timestamp,
   });
@@ -51,57 +51,14 @@ class EventoPartida {
         return '▶️ Partida Retomada';
       case 'PAUSA_TECNICA':
         return '🔴 Pausa Técnica';
-      case 'Substituição':
-        return jogadorNome.contains('↔')
-            ? jogadorNome
-            : 'Substituição #$jogadorNumero';
-      case 'Pausa Iniciada':
-        return '⏸️ Partida Pausada';
-      case 'Pausa Finalizada':
-        return '▶️ Partida Retomada';
-      case 'Início do 1º Tempo':
-        return '🟢 Início do 1º Tempo';
-      case 'Fim do 1º Tempo':
-        return '🔶 Fim do 1º Tempo';
-      case 'Início do 2º Tempo':
-        return '🟢 Início do 2º Tempo';
-      case 'Fim da Partida':
-        return '🏁 Fim da Partida';
-      case 'Prorrogação do 1º Tempo':
-        return '⏰ Prorrogação do 1º Tempo';
-      case 'Prorrogação do 2º Tempo':
-        return '⏰ Prorrogação do 2º Tempo';
-      // Eventos de pausa técnica
       default:
-        if (tipo.startsWith('Pausa Técnica - ')) {
-          return '🔴 $tipo';
-        }
-        if (tipo.startsWith('Fim Pausa Técnica - ')) {
-          return '▶️ $tipo';
-        }
         return '$tipo #$jogadorNumero';
     }
   }
 }
 
-// Modelo simples para gerenciar os jogadores na tela
-class JogadorFutsal {
-  final int numero;
-  final String nome;
-  final Color corTime;
-  final Offset posicao; // Posição relativa no Stack (0.0 a 1.0)
-
-  JogadorFutsal({
-    required this.numero,
-    required this.nome,
-    required this.corTime,
-    required this.posicao,
-  });
-}
-
 class PartidaRunningScreen extends StatefulWidget {
   final Partida partida;
-
   const PartidaRunningScreen({super.key, required this.partida});
 
   @override
@@ -109,27 +66,159 @@ class PartidaRunningScreen extends StatefulWidget {
 }
 
 class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
-  // Constantes de tempo da partida (em segundos) - fácil configuração
-  static const int duracaoPrimeiroTempo = 20 * 60; // 20 minutos
-  static const int duracaoSegundoTempo = 20 * 60; // 20 minutos
+  static const int duracaoPrimeiroTempo = 20 * 60;
+  static const int duracaoSegundoTempo = 20 * 60;
 
   final PartidaService _partidaService = PartidaService();
-
-  // 2. Lista para armazenar os tipos vindos do banco
   List<TipoEventoEsporte> _tiposDeEventosDisponiveis = [];
 
   late int _golsA;
   late int _golsB;
+  bool _carregandoAtletas = true;
+
+  List<Atleta> _jogadoresA = [];
+  List<Atleta> _jogadoresB = [];
+  List<Atleta> _reservasA = [];
+  List<Atleta> _reservasB = [];
+
+  late PeriodoPartida _periodoAtual;
+  Timer? _timer;
+  int _segundos = 0;
+  bool _rodando = false;
+
+  Timer? _timerPausa;
+  int _segundosPausa = 0;
+  bool _partidaJaIniciou = false;
+
+  bool _emPausaTecnica = false;
+  String _timeEmPausaTecnica = '';
+  int _segundosPausaTecnica = 0;
+  Timer? _timerPausaTecnica;
+
+  bool _emAcrescimo = false;
+  int _segundosAcrescimo = 0;
+  Timer? _timerAcrescimo;
+
+   bool _emProrrogacao = false;
+  int _segundosProrrogacao = 0;
+  Timer? _timerProrrogacao;
+
+  Atleta? _jogadorSelecionado;
+
+  final List<EventoPartida> _eventosPartida = [];
 
   @override
   void initState() {
     super.initState();
-
     _golsA = widget.partida.placarA;
     _golsB = widget.partida.placarB;
+    _periodoAtual = _converterStatusParaPeriodo(widget.partida.status);
+    if (_periodoAtual != PeriodoPartida.naoIniciada) _partidaJaIniciou = true;
+    _carregarDadosIniciais();
+  }
 
-    // Chama a busca dos eventos assim que a tela inicia
-    _buscarConfiguracoesDeEventos();
+  Future<void> _carregarDadosIniciais() async {
+    await Future.wait([_buscarConfiguracoesDeEventos(), _carregarAtletas()]);
+  }
+
+  Future<void> _carregarAtletas() async {
+    try {
+      final resultados = await Future.wait([
+        _partidaService.buscarInscritos(widget.partida.equipeAId),
+        _partidaService.buscarInscritos(widget.partida.equipeBId),
+      ]);
+
+      setState(() {
+        _distribuirJogadores(resultados[0], true);
+        _distribuirJogadores(resultados[1], false);
+        _carregandoAtletas = false;
+      });
+    } catch (e) {
+      debugPrint("Erro ao carregar atletas: $e");
+      setState(() => _carregandoAtletas = false);
+    }
+  }
+
+  void _distribuirJogadores(List<dynamic> inscritos, bool isTimeA) {
+    // 1. Definição fixa das cores
+    final corFixa = isTimeA ? Colors.orange : Colors.blue;
+
+    List<Atleta> titulares = [];
+    List<Atleta> reservas = [];
+
+    for (var cada in inscritos) {
+      // Transforma o Map da API em objeto Atleta
+      final atleta = Atleta.fromMap(cada);
+
+      // 2. Injeta a cor fixa no objeto para uso posterior no feed/detalhes
+      atleta.corTime = corFixa;
+
+      if (atleta.ativo) {
+        titulares.add(atleta);
+      } else {
+        reservas.add(atleta);
+      }
+    }
+
+    setState(() {
+      if (isTimeA) {
+        _jogadoresA = titulares;
+        _reservasA = reservas;
+        _posicionarJogadoresNoCampo(_jogadoresA, true);
+      } else {
+        _jogadoresB = titulares;
+        _reservasB = reservas;
+        _posicionarJogadoresNoCampo(_jogadoresB, false);
+      }
+    });
+  }
+
+  void _posicionarJogadoresNoCampo(List<Atleta> jogadores, bool isTimeA) {
+    final posicoesA = [
+      const Offset(0.03, 0.45),
+      const Offset(0.20, 0.45),
+      const Offset(0.30, 0.15),
+      const Offset(0.30, 0.75),
+      const Offset(0.35, 0.45),
+    ];
+    final posicoesB = [
+      const Offset(0.87, 0.45),
+      const Offset(0.73, 0.45),
+      const Offset(0.65, 0.15),
+      const Offset(0.65, 0.75),
+      const Offset(0.57, 0.45),
+    ];
+
+    final listaPosicoes = isTimeA ? posicoesA : posicoesB;
+
+    for (int i = 0; i < jogadores.length; i++) {
+      if (i < listaPosicoes.length) {
+        jogadores[i].posicao = listaPosicoes[i];
+      }
+    }
+  }
+
+  // Função auxiliar para o mapeamento
+  PeriodoPartida _converterStatusParaPeriodo(String status) {
+    switch (status.toLowerCase()) {
+      case 'agendada':
+        return PeriodoPartida.naoIniciada;
+      case '1° tempo':
+        return PeriodoPartida.primeiroTempo;
+      case '2° tempo':
+        return PeriodoPartida.segundoTempo;
+      case 'acréscimo':
+        return PeriodoPartida.acrescimo;
+      case 'intervalo':
+        return PeriodoPartida.intervalo;
+        case 'prorrogação':
+        return PeriodoPartida.prorrogacao;
+      case 'finalizada':
+        return PeriodoPartida.finalizada;
+
+      default:
+        return PeriodoPartida.naoIniciada;
+    }
   }
 
   Future<void> _buscarConfiguracoesDeEventos() async {
@@ -177,36 +266,23 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       debugPrint(
         'Salvando no banco: ${tipoEvento.nome} (ID: ${tipoEvento.id})',
       );
-       await _partidaService.salvarEvento(
-         partidaId: widget.partida.id,
-         tipoEventoId: tipoEvento.id,
-         tempoFormatado: _segundos,
-       );
+      await _partidaService.salvarEvento(
+        partidaId: widget.partida.id,
+        tipoEventoId: tipoEvento.id,
+        tempoFormatado: _segundos,
+      );
     }
   }
-
-  Timer? _timer;
-  int _segundos = 0;
-  bool _rodando = false;
-
-  // Variáveis para controle de pausa
-  Timer? _timerPausa;
-  int _segundosPausa = 0;
-  bool _partidaJaIniciou = false;
-
-  // Controle dos períodos da partida
-  PeriodoPartida _periodoAtual = PeriodoPartida.naoIniciada;
 
   // Variáveis para controle de prorrogação
   int _tempoProrrogacao = 0; // Em segundos
   bool _temProrrogacao = false;
   bool _estaNaProrrogacao = false;
 
-  // Variáveis para controle de pausa técnica
-  Timer? _timerPausaTecnica;
-  int _segundosPausaTecnica = 0;
-  bool _emPausaTecnica = false;
-  String _timeEmPausaTecnica = '';
+    // Variáveis para controle de acrescimo
+  int _tempoAcrescimo = 0; // Em segundos
+  bool _temAcrescimo = false;
+  bool _estaNoAcrescimo = false;
 
   // Controle de uso das pausas técnicas por período
   int _pausasTecnicasTimeAPrimeiroTempo = 0;
@@ -214,136 +290,13 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   int _pausasTecnicasTimeASegundoTempo = 0;
   int _pausasTecnicasTimeBSegundoTempo = 0;
 
-  JogadorFutsal? _jogadorSelecionado;
-  final List<EventoPartida> _eventosPartida = []; // Lista de eventos dinâmica
-
-  // Lista de jogadores posicionados taticamente (Goleiro, Fixo, Alas, Pivô)
-  final List<JogadorFutsal> _jogadoresA = [
-    JogadorFutsal(
-      numero: 1,
-      nome: "Goleiro A",
-      corTime: Colors.orange,
-      posicao: const Offset(0.03, 0.45),
-    ),
-    JogadorFutsal(
-      numero: 5,
-      nome: "Fixo A",
-      corTime: Colors.orange,
-      posicao: const Offset(0.20, 0.45),
-    ),
-    JogadorFutsal(
-      numero: 7,
-      nome: "Ala Esq A",
-      corTime: Colors.orange,
-      posicao: const Offset(0.30, 0.15),
-    ),
-    JogadorFutsal(
-      numero: 11,
-      nome: "Ala Dir A",
-      corTime: Colors.orange,
-      posicao: const Offset(0.30, 0.75),
-    ),
-    JogadorFutsal(
-      numero: 10,
-      nome: "Pivô A",
-      corTime: Colors.orange,
-      posicao: const Offset(0.35, 0.45),
-    ),
-  ];
-
-  final List<JogadorFutsal> _jogadoresB = [
-    JogadorFutsal(
-      numero: 12,
-      nome: "Goleiro B",
-      corTime: Colors.blue,
-      posicao: const Offset(0.87, 0.45),
-    ),
-    JogadorFutsal(
-      numero: 4,
-      nome: "Fixo B",
-      corTime: Colors.blue,
-      posicao: const Offset(0.73, 0.45),
-    ),
-    JogadorFutsal(
-      numero: 8,
-      nome: "Ala Esq B",
-      corTime: Colors.blue,
-      posicao: const Offset(0.65, 0.15),
-    ),
-    JogadorFutsal(
-      numero: 9,
-      nome: "Ala Dir B",
-      corTime: Colors.blue,
-      posicao: const Offset(0.65, 0.75),
-    ),
-    JogadorFutsal(
-      numero: 7,
-      nome: "Pivô B",
-      corTime: Colors.blue,
-      posicao: const Offset(0.57, 0.45),
-    ),
-  ];
-
-  // Listas de jogadores reservas (banco)
-  final List<JogadorFutsal> _reservasA = [
-    JogadorFutsal(
-      numero: 2,
-      nome: "Reserva A1",
-      corTime: Colors.orange,
-      posicao: const Offset(0, 0),
-    ),
-    JogadorFutsal(
-      numero: 3,
-      nome: "Reserva A2",
-      corTime: Colors.orange,
-      posicao: const Offset(0, 0),
-    ),
-    JogadorFutsal(
-      numero: 6,
-      nome: "Reserva A3",
-      corTime: Colors.orange,
-      posicao: const Offset(0, 0),
-    ),
-    JogadorFutsal(
-      numero: 8,
-      nome: "Reserva A4",
-      corTime: Colors.orange,
-      posicao: const Offset(0, 0),
-    ),
-  ];
-
-  final List<JogadorFutsal> _reservasB = [
-    JogadorFutsal(
-      numero: 1,
-      nome: "Reserva B1",
-      corTime: Colors.blue,
-      posicao: const Offset(0, 0),
-    ),
-    JogadorFutsal(
-      numero: 2,
-      nome: "Reserva B2",
-      corTime: Colors.blue,
-      posicao: const Offset(0, 0),
-    ),
-    JogadorFutsal(
-      numero: 5,
-      nome: "Reserva B3",
-      corTime: Colors.blue,
-      posicao: const Offset(0, 0),
-    ),
-    JogadorFutsal(
-      numero: 6,
-      nome: "Reserva B4",
-      corTime: Colors.blue,
-      posicao: const Offset(0, 0),
-    ),
-  ];
-
   @override
   void dispose() {
     _timer?.cancel(); // Limpar timer ao sair da tela
     _timerPausa?.cancel(); // Limpar timer de pausa
     _timerPausaTecnica?.cancel(); // Limpar timer de pausa técnica
+    _timerAcrescimo?.cancel(); // Limpar timer do acrescimo
+    _timerProrrogacao?.cancel(); // Limpar timer da prorrogação
     super.dispose();
   }
 
@@ -622,28 +575,29 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           case PeriodoPartida.naoIniciada:
             _periodoAtual = PeriodoPartida.primeiroTempo;
             _segundos = 0;
-            // ID: e736283c-6874-4b53-8386-8f3b14569501 (idx: 5)
             _registrarEventoSistemico('INICIO_1_TEMPO');
+            // IMPORTANTE: Aqui você deve chamar um método para atualizar o status no Banco para 'em_andamento'
+            _atualizarStatusPartidaNoBanco('em_andamento');
             break;
 
           case PeriodoPartida.intervalo:
             _periodoAtual = PeriodoPartida.segundoTempo;
             _segundos = 0;
-            // ID: b8eb310e-bfe3-4618-8af1-33d86ee51bb5 (idx: 12)
             _registrarEventoSistemico('INICIO_2_TEMPO');
             break;
 
           default:
-            // Se for apenas um "Resume" após um pause comum
             _registrarEventoSistemico('PARTIDA_RETOMADA');
             break;
         }
 
         _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          setState(() {
-            _segundos++;
-            _verificarFimPeriodo();
-          });
+          if (mounted) {
+            setState(() {
+              _segundos++;
+              _verificarFimPeriodo();
+            });
+          }
         });
         _timerPausa?.cancel();
         _partidaJaIniciou = true;
@@ -651,14 +605,23 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         _timer?.cancel();
         if (_periodoAtual != PeriodoPartida.finalizada && !_emPausaTecnica) {
           _timerPausa = Timer.periodic(const Duration(seconds: 1), (timer) {
-            setState(() => _segundosPausa++);
+            if (mounted) setState(() => _segundosPausa++);
           });
-
-          // ID: 165522c0-25cf-4941-a1e1-451c63da7b23 (idx: 11)
           _registrarEventoSistemico('PARTIDA_PAUSADA');
         }
       }
     });
+  }
+
+  // Método para sincronizar o status com o Supabase/API
+  Future<void> _atualizarStatusPartidaNoBanco(String novoStatus) async {
+    try {
+      // Você pode criar este método no seu PartidaService
+      // Exemplo: await _supabase.from('partidas').update({'status': novoStatus}).eq('id', widget.partida.id);
+      debugPrint('Status da partida atualizado para: $novoStatus');
+    } catch (e) {
+      debugPrint('Erro ao atualizar status: $e');
+    }
   }
 
   void _registrarEvento(String tipo) {
@@ -722,9 +685,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     // Criar evento para o feed
     final evento = EventoPartida(
       tipo: tipo,
+      corTime: jogador.corTime ?? Colors.grey,
       jogadorNome: jogador.nome,
       jogadorNumero: jogador.numero,
-      corTime: jogador.corTime,
       horario: _formatarTempo(_segundos),
       timestamp: DateTime.now(),
     );
@@ -777,15 +740,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     });
   }
 
-  Future<void> _salvarEventoNoBanco(String tipo, JogadorFutsal jogador) async {
-    // Exemplo:
-    // await _partidaRepository.registrarEvento(
-    //   sumulaId: widget.partidaId,
-    //   atletaNome: jogador.nome,
-    //   tipo: tipo.toUpperCase(),
-    //   time: _jogadoresA.contains(jogador) ? 'A' : 'B',
-    // );
-
+  Future<void> _salvarEventoNoBanco(String tipo, Atleta jogador) async {
     debugPrint('Evento $tipo salvo para jogador ${jogador.nome}');
   }
 
@@ -795,7 +750,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     return '${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')}';
   }
 
-  void _abrirDetalhesJogador(JogadorFutsal jogador) {
+  void _abrirDetalhesJogador(Atleta jogador) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -937,118 +892,178 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       child: Scaffold(
         body: Stack(
           children: [
-            // Fundo com Gradiente
+            // 1. Fundo com Gradiente (Sempre visível)
             const GradientBackground(),
-            // Conteúdo Principal
+
+            // 2. Conteúdo Principal da UI
             SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    GameScoreboard(
-                      timeA: widget.partida.equipeA?.nome ?? "Time A",
-                      timeB: widget.partida.equipeB?.nome ?? "Time B",
-                      golsA: _golsA,
-                      golsB: _golsB,
-                      periodoAtual: _periodoAtual,
-                      emPausaTecnica: _emPausaTecnica,
-                      timeEmPausaTecnica: _timeEmPausaTecnica,
-                      segundosPausaTecnica: _segundosPausaTecnica,
-                      podeUsarPausaTecnica: _podeUsarPausaTecnica,
-                      onPausaTecnicaIniciada: _iniciarPausaTecnica,
-                      onPausaTecnicaFinalizada: _finalizarPausaTecnica,
-                    ),
-                    const SizedBox(height: 12),
-                    GameEventsFeed(eventos: _eventosPartida),
-                    const SizedBox(height: 12),
-                    GameTimerCard(
-                      segundos: _segundos,
-                      rodando: _rodando,
-                      partidaJaIniciou: _partidaJaIniciou,
-                      periodoAtual: _periodoAtual,
-                      emPausaTecnica: _emPausaTecnica,
-                      timeEmPausaTecnica: _timeEmPausaTecnica,
-                      segundosPausaTecnica: _segundosPausaTecnica,
-                      segundosPausa: _segundosPausa,
-                      tempoProrrogacao: _tempoProrrogacao,
-                      temProrrogacao: _temProrrogacao,
-                      onToggleCronometro: _alternarCronometro,
-                      onFinalizarPrimeiroTempo: _finalizarPrimeiroTempo,
-                      onFinalizarSegundoTempo: _finalizarSegundoTempo,
-                      onAbrirModalProrrogacao: _abrirModalProrrogacao,
-                    ),
-                    const SizedBox(height: 16),
-                    GameField(
-                      jogadoresA: _jogadoresA,
-                      jogadoresB: _jogadoresB,
-                      jogadorSelecionado: _jogadorSelecionado,
-                      onJogadorSelecionado: (jogador) {
-                        setState(() => _jogadorSelecionado = jogador);
-                      },
-                      onJogadorDoubleTap: _abrirDetalhesJogador,
-                    ),
-                    const SizedBox(height: 16),
-                    GameActionsPanel(
-                      jogadorSelecionado: _jogadorSelecionado,
-                      periodoAtual: _periodoAtual,
-                      onRegistrarEvento: _registrarEvento,
-                    ),
-                    const SizedBox(height: 20),
-                    // Botão Gerar Súmula (só aparece quando partida finalizada)
-                    if (_periodoAtual == PeriodoPartida.finalizada) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // pushReplacement impede que o usuário volte para a tela de jogo
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => MatchSummaryScreen(
-                                  timeA:
-                                      widget.partida.equipeA?.nome ?? "Time A",
-                                  timeB:
-                                      widget.partida.equipeB?.nome ?? "Time B",
-                                  golsA: _golsA,
-                                  golsB: _golsB,
-                                  eventos: _eventosPartida,
+              child: Opacity(
+                // Se estiver carregando, a UI fica semi-transparente
+                opacity: _carregandoAtletas ? 0.3 : 1.0,
+                child: IgnorePointer(
+                  // Se estiver carregando, bloqueia cliques em tudo
+                  ignoring: _carregandoAtletas,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+
+                        // Placar
+                        GameScoreboard(
+                          timeA: widget.partida.equipeA?.nome ?? "Time A",
+                          timeB: widget.partida.equipeB?.nome ?? "Time B",
+                          golsA: _golsA,
+                          golsB: _golsB,
+                          periodoAtual: _periodoAtual,
+                          emPausaTecnica: _emPausaTecnica,
+                          timeEmPausaTecnica: _timeEmPausaTecnica,
+                          segundosPausaTecnica: _segundosPausaTecnica,
+                          podeUsarPausaTecnica: _podeUsarPausaTecnica,
+                          onPausaTecnicaIniciada: _iniciarPausaTecnica,
+                          onPausaTecnicaFinalizada: _finalizarPausaTecnica,
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Feed de Eventos
+                        GameEventsFeed(eventos: _eventosPartida),
+
+                        const SizedBox(height: 12),
+
+                        // Card do Cronómetro e Controles de Tempo
+                        GameTimerCard(
+                          segundos: _segundos,
+                          rodando: _rodando,
+                          partidaJaIniciou: _partidaJaIniciou,
+                          periodoAtual: _periodoAtual,
+                          emPausaTecnica: _emPausaTecnica,
+                          timeEmPausaTecnica: _timeEmPausaTecnica,
+                          segundosPausaTecnica: _segundosPausaTecnica,
+                          segundosPausa: _segundosPausa,
+                          tempoProrrogacao: _tempoProrrogacao,
+                          temProrrogacao: _temProrrogacao,
+                          onToggleCronometro: _alternarCronometro,
+                          onFinalizarPrimeiroTempo: _finalizarPrimeiroTempo,
+                          onFinalizarSegundoTempo: _finalizarSegundoTempo,
+                          onAbrirModalProrrogacao: _abrirModalProrrogacao,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Campo de Jogo com Jogadores
+                        GameField(
+                          jogadoresA: _jogadoresA,
+                          jogadoresB: _jogadoresB,
+                          jogadorSelecionado: _jogadorSelecionado,
+                          onJogadorSelecionado: (jogador) {
+                            setState(() => _jogadorSelecionado = jogador);
+                          },
+                          onJogadorDoubleTap: _abrirDetalhesJogador,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Painel de Ações (Gols, Cartões, etc)
+                        GameActionsPanel(
+                          jogadorSelecionado: _jogadorSelecionado,
+                          periodoAtual: _periodoAtual,
+                          onRegistrarEvento: _registrarEvento,
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Botão Gerar Súmula (Só aparece no fim)
+                        if (_periodoAtual == PeriodoPartida.finalizada) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MatchSummaryScreen(
+                                      timeA:
+                                          widget.partida.equipeA?.nome ??
+                                          "Time A",
+                                      timeB:
+                                          widget.partida.equipeB?.nome ??
+                                          "Time B",
+                                      golsA: _golsA,
+                                      golsB: _golsB,
+                                      eventos: _eventosPartida,
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(50),
                                 ),
                               ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(50),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.analytics),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'VER RESUMO DA PARTIDA',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.analytics),
-                              SizedBox(width: 8),
-                              Text(
-                                'VER RESUMO DA PARTIDA',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    _buildBotaoVoltar(),
-                    const SizedBox(height: 30),
-                  ],
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Botão Sair/Voltar dinâmico
+                        _buildBotaoVoltar(),
+
+                        const SizedBox(height: 30),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
+
+            // 3. Loader Central (Aparece por cima de tudo)
+            if (_carregandoAtletas)
+              Container(
+                color: Colors.black54, // Escurece o fundo
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.orange,
+                        ),
+                        strokeWidth: 3,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        "Carregando equipas e atletas...",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -1197,7 +1212,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     );
   }
 
-  Widget _buildReservaCard(JogadorFutsal reserva, JogadorFutsal saindo) {
+  Widget _buildReservaCard(Atleta reserva, Atleta saindo) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -1211,7 +1226,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               // ignore: deprecated_member_use
-              colors: [reserva.corTime.withOpacity(0.2), Colors.white10],
+              colors: [
+                (reserva.corTime ?? Colors.grey).withOpacity(0.2),
+                Colors.white10,
+              ],
             ),
             borderRadius: BorderRadius.circular(15),
             border: Border.all(color: Colors.white10),
@@ -1247,14 +1265,17 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     );
   }
 
-  void _confirmarSubstituicao(JogadorFutsal saindo, JogadorFutsal entrando) {
+  void _confirmarSubstituicao(Atleta saindo, Atleta entrando) {
     setState(() {
       final isA = _jogadoresA.contains(saindo);
       final listTitulares = isA ? _jogadoresA : _jogadoresB;
       final listReservas = isA ? _reservasA : _reservasB;
 
       int idx = listTitulares.indexOf(saindo);
-      listTitulares[idx] = JogadorFutsal(
+      listTitulares[idx] = Atleta(
+        id: entrando.id,
+        atletaId: entrando.atletaId,
+        ativo: entrando.ativo,
         numero: entrando.numero,
         nome: entrando.nome,
         corTime: entrando.corTime,
@@ -1263,7 +1284,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
       listReservas.remove(entrando);
       listReservas.add(
-        JogadorFutsal(
+        Atleta(
+          id: entrando.id,
+          atletaId: entrando.atletaId,
+          ativo: entrando.ativo,
           numero: saindo.numero,
           nome: saindo.nome,
           corTime: saindo.corTime,
@@ -1277,7 +1301,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           tipo: 'Substituição',
           jogadorNome: '${saindo.nome} ↔ ${entrando.nome}',
           jogadorNumero: saindo.numero,
-          corTime: saindo.corTime,
+          corTime: saindo.corTime ?? Colors.grey,
           horario: _formatarTempo(_segundos),
           timestamp: DateTime.now(),
         ),
