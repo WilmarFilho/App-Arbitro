@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:kyarem_eventos/models/atleta_model.dart';
-import '../../screens/game/partida_screen.dart';
 
 /// Widget do campo de futsal com os jogadores posicionados
 class GameField extends StatelessWidget {

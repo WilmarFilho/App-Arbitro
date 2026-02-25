@@ -99,7 +99,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   int _segundosAcrescimo = 0;
   Timer? _timerAcrescimo;
 
-   bool _emProrrogacao = false;
+  bool _emProrrogacao = false;
   int _segundosProrrogacao = 0;
   Timer? _timerProrrogacao;
 
@@ -211,7 +211,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         return PeriodoPartida.acrescimo;
       case 'intervalo':
         return PeriodoPartida.intervalo;
-        case 'prorrogação':
+      case 'prorrogação':
         return PeriodoPartida.prorrogacao;
       case 'finalizada':
         return PeriodoPartida.finalizada;
@@ -229,7 +229,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       setState(() {
         _tiposDeEventosDisponiveis = tipos;
       });
-      // ignore: empty_catches
+      debugPrint(
+        _tiposDeEventosDisponiveis.map((e) => e.nome).toList().toString(),
+      );
     } catch (e) {}
   }
 
@@ -279,7 +281,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   bool _temProrrogacao = false;
   bool _estaNaProrrogacao = false;
 
-    // Variáveis para controle de acrescimo
+  // Variáveis para controle de acrescimo
   int _tempoAcrescimo = 0; // Em segundos
   bool _temAcrescimo = false;
   bool _estaNoAcrescimo = false;
@@ -624,67 +626,54 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     }
   }
 
-  void _registrarEvento(String tipo) {
-    // Verificar se é permitido registrar eventos no estado atual da partida
+  void _registrarEvento(TipoEventoEsporte tipoObjeto) {
+    // 1. Validações de Estado da Partida (Mantidas)
     if (_periodoAtual == PeriodoPartida.naoIniciada) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Não é possível registrar eventos antes de iniciar a partida!",
-          ),
-          backgroundColor: Colors.orange,
-        ),
+      _mostrarAviso(
+        "Não é possível registrar eventos antes de iniciar a partida!",
+        Colors.orange,
       );
       return;
     }
 
     if (_periodoAtual == PeriodoPartida.finalizada) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Não é possível registrar eventos com a partida encerrada!",
-          ),
-          backgroundColor: Colors.red,
-        ),
+      _mostrarAviso(
+        "Não é possível registrar eventos com a partida encerrada!",
+        Colors.red,
       );
       return;
     }
 
     if (_periodoAtual == PeriodoPartida.intervalo) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Não é possível registrar eventos durante o intervalo!",
-          ),
-          backgroundColor: Colors.blue,
-        ),
+      _mostrarAviso(
+        "Não é possível registrar eventos durante o intervalo!",
+        Colors.blue,
       );
       return;
     }
 
     if (_jogadorSelecionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Selecione um jogador no campo primeiro!"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarAviso("Selecione um jogador no campo primeiro!", Colors.red);
       return;
     }
 
-    // Tratamento especial para substituições
-    if (tipo == "Substituição") {
-      _abrirModalSubstituicaoNovo();
+    // 2. Extraímos o nome para facilitar as comparações lógicas
+    final String nomeEvento = tipoObjeto.nome.trim();
+
+    // 3. Tratamento especial para substituições
+    if (nomeEvento.toLowerCase() == "substituição") {
+      _abrirModalSubstituicaoNovo(); // O seu método de substituição já lida com o estado
       return;
     }
 
-    // Guardar informações do jogador antes de limpar seleção
+    // 4. Guardar informações do jogador e identificar o time
     final jogador = _jogadorSelecionado!;
     final isTimeA = _jogadoresA.contains(jogador);
 
-    // Criar evento para o feed
-    final evento = EventoPartida(
-      tipo: tipo,
+    // 5. Criar objeto de evento para a UI (Feed)
+    final novoEventoFeed = EventoPartida(
+      tipo:
+          tipoObjeto.nomeFormatado, // Usando o helper que você criou no modelo
       corTime: jogador.corTime ?? Colors.grey,
       jogadorNome: jogador.nome,
       jogadorNumero: jogador.numero,
@@ -692,36 +681,44 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       timestamp: DateTime.now(),
     );
 
-    // Lógica de exemplo para aumentar placar
-    if (tipo == "Gol") {
-      setState(() {
+    // 6. Atualização do Estado (Placar e Lista de Eventos)
+    setState(() {
+      // Lógica para aumentar placar se for GOL
+      if (nomeEvento.toLowerCase() == "gol") {
         if (isTimeA) {
           _golsA++;
         } else {
           _golsB++;
         }
-      });
-    }
+      }
 
-    // Adicionar evento ao feed e limpar seleção do jogador após registrar evento
-    setState(() {
-      _eventosPartida.insert(0, evento); // Adiciona no início da lista
+      // Adiciona no início da lista do feed
+      _eventosPartida.insert(0, novoEventoFeed);
+
+      // Limpa a seleção do jogador para evitar registros duplicados por erro
       _jogadorSelecionado = null;
     });
 
-    // Mostrar confirmação do evento registrado
+    // 7. Feedback visual para o usuário
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          "$tipo registrado para ${jogador.nome} (#${jogador.numero})",
+          "${tipoObjeto.nomeFormatado} registrado: ${jogador.nome} (#${jogador.numero})",
         ),
         backgroundColor: Colors.green,
         duration: const Duration(seconds: 2),
       ),
     );
 
-    // Aqui você pode integrar com seu repositório/banco de dados
-    _salvarEventoNoBanco(tipo, jogador);
+    // 8. Integração com o banco de dados (Passando o objeto completo)
+    _salvarEventoNoBanco(tipoObjeto, jogador);
+  }
+
+  // Helper simples para reduzir repetição de código nas validações
+  void _mostrarAviso(String mensagem, Color cor) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensagem), backgroundColor: cor));
   }
 
   // Método específico para eventos oficiais (não relacionados a jogadores)
@@ -740,8 +737,17 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     });
   }
 
-  Future<void> _salvarEventoNoBanco(String tipo, Atleta jogador) async {
-    debugPrint('Evento $tipo salvo para jogador ${jogador.nome}');
+  Future<void> _salvarEventoNoBanco(
+    TipoEventoEsporte tipo,
+    Atleta jogador,
+  ) async {
+    debugPrint('--- ⚽ NOVO EVENTO REGISTRADO ---');
+    debugPrint('ID Tipo Evento: ${tipo.id}');
+    debugPrint('Nome (DB):      ${tipo.nome}');
+    debugPrint('Nome (Format):  ${tipo.nomeFormatado}');
+    debugPrint('Atleta:         ${jogador.nome} (#${jogador.numero})');
+    debugPrint('Tempo Partida:  ${_formatarTempo(_segundos)}');
+    debugPrint('---------------------------------');
   }
 
   String _formatarTempo(int totalSegundos) {
@@ -969,6 +975,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                           jogadorSelecionado: _jogadorSelecionado,
                           periodoAtual: _periodoAtual,
                           onRegistrarEvento: _registrarEvento,
+                          tiposDeEventos: _tiposDeEventosDisponiveis,
                         ),
 
                         const SizedBox(height: 20),
