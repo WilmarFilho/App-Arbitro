@@ -3,6 +3,8 @@ package com.nkw.backapisumula.identity.service;
 import com.nkw.backapisumula.identity.Profile;
 import com.nkw.backapisumula.identity.repo.ProfileRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -17,5 +19,9 @@ public class ProfileService {
     public Profile getOrThrow(UUID userId) {
         return repo.findById(userId)
                 .orElseThrow(() -> new IllegalStateException("Profile não encontrado para o usuário logado."));
+    }
+
+    public List<Profile> listArbitros() {
+        return repo.findByRoleIgnoreCaseOrderByNomeExibicaoAsc("arbitro");
     }
 }
