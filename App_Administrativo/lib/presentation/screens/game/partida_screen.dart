@@ -708,6 +708,32 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     });
   }
 
+  // Função para contar estatísticas do jogador em tempo real
+  Map<String, int> _obterEstatisticasJogador(String nomeJogador) {
+    int gols = 0;
+    int faltas = 0;
+    int cartoesAmarelos = 0;
+    int cartoesVermelhos = 0;
+
+    for (var evento in _eventosPartida) {
+      if (evento.jogadorNome == nomeJogador) {
+        final tipo = evento.tipo.toLowerCase();
+
+        if (tipo.contains('gol')) gols++;
+        if (tipo.contains('falta')) faltas++;
+        if (tipo.contains('cartao amarelo')) cartoesAmarelos++;
+        if (tipo.contains('cartao vermelho')) cartoesVermelhos++;
+      }
+    }
+
+    return {
+      'gols': gols,
+      'faltas': faltas,
+      'amarelos': cartoesAmarelos,
+      'vermelhos': cartoesVermelhos,
+    };
+  }
+
   void _registrarEvento(TipoEventoEsporte tipoObjeto) {
     // 1. Validações de Estado da Partida
     if (_periodoAtual == PeriodoPartida.naoIniciada) {
@@ -810,24 +836,33 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   }
 
   void _abrirDetalhesJogador(Atleta jogador) {
+    // Obtém as estatísticas dinâmicas
+    final stats = _obterEstatisticasJogador(jogador.nome);
+
     showModalBottomSheet(
       context: context,
+      backgroundColor: const Color(
+        0xFF2D2D2D,
+      ), // Fundo escuro para combinar com o app
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Header com Avatar e Número
             CircleAvatar(
-              radius: 40,
-              backgroundColor: jogador.corTime,
+              radius: 45,
+              backgroundColor: (jogador.corTime ?? Colors.grey).withOpacity(
+                0.2,
+              ),
               child: Text(
                 "#${jogador.numero}",
-                style: const TextStyle(
-                  fontSize: 24,
-                  color: Colors.white,
+                style: TextStyle(
+                  fontSize: 28,
+                  color: jogador.corTime ?? Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -835,35 +870,87 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
             const SizedBox(height: 16),
             Text(
               jogador.nome,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-            const Text(
-              "Status: Em campo",
-              style: TextStyle(color: Colors.green),
-            ),
-            const Divider(height: 32),
+            const SizedBox(height: 4),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _infoStat("Gols", "1"),
-                _infoStat("Faltas", "2"),
-                _infoStat("Cartões", "0"),
+                const Icon(Icons.circle, size: 10, color: Colors.green),
+                const SizedBox(width: 8),
+                Text(
+                  "EM CAMPO",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Divider(color: Colors.white10),
+            ),
+
+            // Grade de Estatísticas
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _infoStat(
+                  "Gols",
+                  stats['gols'].toString(),
+                  Icons.sports_soccer,
+                  Colors.white,
+                ),
+                _infoStat(
+                  "Faltas",
+                  stats['faltas'].toString(),
+                  Icons.warning_amber_rounded,
+                  Colors.orange,
+                ),
+                _infoStat(
+                  "C. Amarelo",
+                  stats['amarelos'].toString(),
+                  Icons.style,
+                  Colors.yellow,
+                ),
+                _infoStat(
+                  "C. Vermelho",
+                  stats['vermelhos'].toString(),
+                  Icons.style,
+                  Colors.red,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _infoStat(String label, String valor) {
+  Widget _infoStat(String label, String valor, IconData icon, Color color) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
+        Icon(icon, color: color.withOpacity(0.8), size: 20),
+        const SizedBox(height: 8),
         Text(
           valor,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        Text(label),
+        Text(
+          label,
+          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+        ),
       ],
     );
   }
