@@ -50,19 +50,6 @@ class GameTimerCard extends StatelessWidget {
     return '${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')}';
   }
 
-  Widget _formatarTempoPausa() {
-    int min = segundosPausa ~/ 60;
-    int seg = segundosPausa % 60;
-    return Text(
-      '${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')} (Pausa em andamento)',
-      style: TextStyle(
-        color: rodando ? Colors.white60 : Colors.orange,
-        fontSize: 10,
-        fontWeight: rodando ? FontWeight.normal : FontWeight.bold,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (periodoAtual == PeriodoPartida.finalizada) {
