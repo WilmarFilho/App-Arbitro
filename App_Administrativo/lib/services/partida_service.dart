@@ -152,6 +152,27 @@ class PartidaService {
     }
   }
 
+  Future<void> atualizarPartida(
+    String partidaId, {
+    String? novoStatus,
+    int? golsA,
+    int? golsB,
+  }) async {
+    // Criamos um mapa apenas com o que não for nulo
+    final Map<String, dynamic> dadosParaAtualizar = {};
+
+    if (novoStatus != null) dadosParaAtualizar['status'] = novoStatus;
+    if (golsA != null) dadosParaAtualizar['placar_a'] = golsA;
+    if (golsB != null) dadosParaAtualizar['placar_b'] = golsB;
+
+    if (dadosParaAtualizar.isNotEmpty) {
+      await _supabase
+          .from('partidas')
+          .update(dadosParaAtualizar)
+          .eq('id', partidaId);
+    }
+  }
+
   /// Busca tipos de eventos do esporte da modalidade específica
   Future<List<TipoEventoEsporte>> buscarTiposDeEventoDaPartida(
     String modalidadeId,

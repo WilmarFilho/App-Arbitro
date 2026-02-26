@@ -66,7 +66,7 @@ class PartidaRunningScreen extends StatefulWidget {
 }
 
 class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
-  static const int duracaoPrimeiroTempo = 20 * 60;
+  static const int duracaoPrimeiroTempo = 1 * 10;
   static const int duracaoSegundoTempo = 20 * 60;
 
   final PartidaService _partidaService = PartidaService();
@@ -82,26 +82,23 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   List<Atleta> _reservasB = [];
 
   late PeriodoPartida _periodoAtual;
+  PeriodoPartida? _periodoAntesDoAcrescimo;
+
   Timer? _timer;
   int _segundos = 0;
   bool _rodando = false;
 
-  Timer? _timerPausa;
   int _segundosPausa = 0;
   bool _partidaJaIniciou = false;
 
   bool _emPausaTecnica = false;
   String _timeEmPausaTecnica = '';
   int _segundosPausaTecnica = 0;
+
   Timer? _timerPausaTecnica;
-
-  bool _emAcrescimo = false;
-  int _segundosAcrescimo = 0;
   Timer? _timerAcrescimo;
-
-  bool _emProrrogacao = false;
-  int _segundosProrrogacao = 0;
   Timer? _timerProrrogacao;
+  Timer? _timerPausa;
 
   Atleta? _jogadorSelecionado;
 
@@ -310,7 +307,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           if (_temAcrescimo && !_estaNoAcrescimo) {
             // Iniciar acrescimo do primeiro tempo
             _iniciarAcrescimo();
-            _emAcrescimo = true;
+            _estaNoAcrescimo = true;
           } else {
             _finalizarPrimeiroTempo();
           }
@@ -321,12 +318,12 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           // 1º Prioridade: Se tem acréscimo e ainda não iniciou, inicia o acréscimo
           if (_temAcrescimo && !_estaNoAcrescimo) {
             _iniciarAcrescimo();
-            _emAcrescimo = true;
+            _estaNoAcrescimo = true;
           }
           // 2º Prioridade: Se não tem acréscimo (ou já acabou) e tem prorrogação
           else if (_temProrrogacao && !_estaNaProrrogacao) {
             _iniciarProrrogacao();
-            _emProrrogacao = true;
+            _estaNaProrrogacao = true;
           }
           // 3º Prioridade: Finaliza se não houver mais nada pendente
           else {
@@ -334,6 +331,19 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           }
         }
         break;
+      case PeriodoPartida.acrescimo:
+        // Se os segundos contados atingirem o tempo definido no modal
+        if (_segundos >= _tempoAcrescimo) {
+          _timer?.cancel();
+          setState(() {
+            _rodando = false;
+          });
+          if (_periodoAntesDoAcrescimo == PeriodoPartida.primeiroTempo) {
+            _finalizarPrimeiroTempo();
+          } else {
+            _finalizarPartida();
+          }
+        }
       case PeriodoPartida.prorrogacao:
         if (_segundos >= _tempoProrrogacao) {
           _finalizarPartida();
@@ -359,12 +369,24 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
   // Inicia período de prorrogação
   void _iniciarAcrescimo() {
-    _timer?.cancel();
+    _timer?.cancel(); // Cancela qualquer timer ativo
+
     setState(() {
-      _rodando = false;
+      _periodoAntesDoAcrescimo = _periodoAtual;
+      _rodando = true; // Já começa rodando
       _estaNoAcrescimo = true;
       _periodoAtual = PeriodoPartida.acrescimo;
-      _segundos = 0; // Reset do cronômetro para o acrescimo
+      _segundos = 0; // Reset para contar o tempo do acréscimo
+    });
+
+    // Inicia o contador
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _segundos++;
+          _verificarFimPeriodo(); // Esta função vai travar o tempo quando chegar no limite
+        });
+      }
     });
 
     _registrarEventoSistemico('ACRESCIMO');
@@ -378,10 +400,15 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     setState(() {
       _rodando = false;
       _periodoAtual = PeriodoPartida.intervalo;
-      // Zerar configuração de prorrogação ao entrar no intervalo
-      _temProrrogacao = false;
-      _tempoProrrogacao = 0;
-      _estaNaProrrogacao = false;
+
+      _partidaService.atualizarPartida(
+        widget.partida.id,
+        novoStatus: 'intervalo',
+      );
+
+      _temAcrescimo = false;
+      _tempoAcrescimo = 0;
+      _estaNoAcrescimo = false;
     });
 
     _registrarEventoSistemico('FIM_1_TEMPO');
@@ -399,11 +426,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     });
 
     _registrarEventoSistemico('FIM_PARTIDA');
-  }
-
-  // Finaliza o segundo tempo manualmente
-  void _finalizarSegundoTempo() {
-    _finalizarPartida();
   }
 
   // Abre modal para selecionar tempo de prorrogação
@@ -644,10 +666,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         });
       }
     });
-
-    // 2. Registrar evento usando a ID oficial do arquivo events.txt
-    // O nome deve ser 'PAUSA_TECNICA' para bater com o id '33a611e7-1038-44b1-b811-0063d3ffdbc9'
-    _registrarEventoOficial('PAUSA_TECNICA');
   }
 
   // Finaliza pausa técnica manualmente ou automaticamente
@@ -657,9 +675,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     setState(() {
       _emPausaTecnica = false;
     });
-
-    // Registrar evento de fim de pausa técnica
-    _registrarEventoOficial('Fim Pausa Técnica - $_timeEmPausaTecnica');
 
     _timeEmPausaTecnica = '';
     _segundosPausaTecnica = 0;
@@ -675,14 +690,24 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
             _periodoAtual = PeriodoPartida.primeiroTempo;
             _segundos = 0;
             _registrarEventoSistemico('INICIO_1_TEMPO');
-            // IMPORTANTE: Aqui você deve chamar um método para atualizar o status no Banco para 'em_andamento'
-            _atualizarStatusPartidaNoBanco('em_andamento');
+
+            _partidaService.atualizarPartida(
+              widget.partida.id,
+              novoStatus: '1° tempo',
+            );
+
             break;
 
           case PeriodoPartida.intervalo:
             _periodoAtual = PeriodoPartida.segundoTempo;
             _segundos = 0;
             _registrarEventoSistemico('INICIO_2_TEMPO');
+
+            _partidaService.atualizarPartida(
+              widget.partida.id,
+              novoStatus: '2° tempo',
+            );
+
             break;
 
           default:
@@ -710,17 +735,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         }
       }
     });
-  }
-
-  // Método para sincronizar o status com o Supabase/API
-  Future<void> _atualizarStatusPartidaNoBanco(String novoStatus) async {
-    try {
-      // Você pode criar este método no seu PartidaService
-      // Exemplo: await _supabase.from('partidas').update({'status': novoStatus}).eq('id', widget.partida.id);
-      debugPrint('Status da partida atualizado para: $novoStatus');
-    } catch (e) {
-      debugPrint('Erro ao atualizar status: $e');
-    }
   }
 
   void _registrarEvento(TipoEventoEsporte tipoObjeto) {
@@ -787,6 +801,12 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         } else {
           _golsB++;
         }
+
+        _partidaService.atualizarPartida(
+          widget.partida.id,
+          golsA: _golsA,
+          golsB: _golsB,
+        );
       }
 
       // Adiciona no início da lista do feed
@@ -807,8 +827,13 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       ),
     );
 
-    // 8. Integração com o banco de dados (Passando o objeto completo)
-    _salvarEventoNoBanco(tipoObjeto, jogador);
+    debugPrint('--- ⚽ NOVO EVENTO REGISTRADO ---');
+    debugPrint('ID Tipo Evento: ${tipoObjeto.id}');
+    debugPrint('Nome (DB):      ${tipoObjeto.nome}');
+    debugPrint('Nome (Format):  ${tipoObjeto.nomeFormatado}');
+    debugPrint('Atleta:         ${jogador.nome} (#${jogador.numero})');
+    debugPrint('Tempo Partida:  ${_formatarTempo(_segundos)}');
+    debugPrint('---------------------------------');
   }
 
   // Helper simples para reduzir repetição de código nas validações
@@ -816,35 +841,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(mensagem), backgroundColor: cor));
-  }
-
-  // Método específico para eventos oficiais (não relacionados a jogadores)
-  void _registrarEventoOficial(String tipo) {
-    final evento = EventoPartida(
-      tipo: tipo,
-      jogadorNome: '', // Eventos oficiais não precisam de jogador
-      jogadorNumero: 0,
-      corTime: Colors.blue, // Cor azul para eventos oficiais
-      horario: _formatarTempo(_segundos),
-      timestamp: DateTime.now(),
-    );
-
-    setState(() {
-      _eventosPartida.insert(0, evento);
-    });
-  }
-
-  Future<void> _salvarEventoNoBanco(
-    TipoEventoEsporte tipo,
-    Atleta jogador,
-  ) async {
-    debugPrint('--- ⚽ NOVO EVENTO REGISTRADO ---');
-    debugPrint('ID Tipo Evento: ${tipo.id}');
-    debugPrint('Nome (DB):      ${tipo.nome}');
-    debugPrint('Nome (Format):  ${tipo.nomeFormatado}');
-    debugPrint('Atleta:         ${jogador.nome} (#${jogador.numero})');
-    debugPrint('Tempo Partida:  ${_formatarTempo(_segundos)}');
-    debugPrint('---------------------------------');
   }
 
   String _formatarTempo(int totalSegundos) {
@@ -1050,7 +1046,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                           tempoAcrescimo: _tempoAcrescimo,
                           onToggleCronometro: _alternarCronometro,
                           onFinalizarPrimeiroTempo: _finalizarPrimeiroTempo,
-                          onFinalizarSegundoTempo: _finalizarSegundoTempo,
+                          onFinalizarSegundoTempo: _finalizarPartida,
                           onAbrirModalProrrogacao: _abrirModalProrrogacao,
                           onAbrirModalAcrescimo: _abrirModalAcrescimo,
                         ),
@@ -1161,6 +1157,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                       Text(
                         "Carregando equipas e atletas...",
                         style: TextStyle(
+                          // ignore: deprecated_member_use
                           color: Colors.white.withOpacity(0.9),
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
