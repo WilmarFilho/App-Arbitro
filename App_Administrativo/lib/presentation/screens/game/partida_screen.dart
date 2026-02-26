@@ -40,7 +40,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
   late int _golsA;
   late int _golsB;
-  bool _carregandoAtletas = true;
+  bool _carregandoDados = true;
 
   List<Atleta> _jogadoresA = [];
   List<Atleta> _jogadoresB = [];
@@ -81,7 +81,17 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   }
 
   Future<void> _carregarDadosIniciais() async {
-    await Future.wait([_buscarConfiguracoesDeEventos(), _carregarAtletas()]);
+    setState(() => _carregandoDados = true);
+
+    try {
+      // Executa as duas buscas em paralelo
+      await Future.wait([_buscarConfiguracoesDeEventos(), _carregarAtletas()]);
+    } catch (e) {
+      debugPrint("Erro no carregamento inicial: $e");
+    } finally {
+      // Só desativa o loader quando as duas promessas acima forem resolvidas
+      setState(() => _carregandoDados = false);
+    }
   }
 
   Future<void> _carregarAtletas() async {
@@ -94,11 +104,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       setState(() {
         _distribuirJogadores(resultados[0], true);
         _distribuirJogadores(resultados[1], false);
-        _carregandoAtletas = false;
       });
     } catch (e) {
       debugPrint("Erro ao carregar atletas: $e");
-      setState(() => _carregandoAtletas = false);
     }
   }
 
@@ -950,10 +958,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
             SafeArea(
               child: Opacity(
                 // Se estiver carregando, a UI fica semi-transparente
-                opacity: _carregandoAtletas ? 0.3 : 1.0,
+                opacity: _carregandoDados ? 0.3 : 1.0,
                 child: IgnorePointer(
                   // Se estiver carregando, bloqueia cliques em tudo
-                  ignoring: _carregandoAtletas,
+                  ignoring: _carregandoDados,
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
@@ -1093,7 +1101,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
             ),
 
             // 3. Loader Central (Aparece por cima de tudo)
-            if (_carregandoAtletas)
+            if (_carregandoDados)
               Container(
                 color: Colors.black54, // Escurece o fundo
                 child: Center(

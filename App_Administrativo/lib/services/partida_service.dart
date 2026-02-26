@@ -119,7 +119,7 @@ class PartidaService {
     }
   }
 
-  /// BUSCA PARTIDAS DO USUÁRIO ( ARBITRO )
+  /// BUSCA PARTIDAS DO USUÁRIO
   Future<List<Partida>> listarPartidasMinhas() async {
     try {
       final response = await _dio.get('/partidas/minhas');
@@ -192,37 +192,50 @@ class PartidaService {
     }
   }
 
-  /// Busca tipos de eventos do esporte da modalidade específica SUPABASE
+  /// BUSCA TIPOS DE EVENTOS BASEADOS NA MODALIDADE DA PARTIDA
   Future<List<TipoEventoEsporte>> buscarTiposDeEventoDaPartida(
     String modalidadeId,
   ) async {
     try {
-      // 1. Busca a modalidade para obter o esporte_id vinculado
-      final modalidadeData = await _supabase
-          .from('modalidades')
-          .select('esporte_id')
-          .eq('id', modalidadeId)
-          .single();
+      // 1. Busca os detalhes da modalidade para descobrir qual é o Esporte
+      final responseModalidade = await _dio.get('/modalidades/$modalidadeId');
 
-      final String? esporteId = modalidadeData['esporte_id'];
+      if (responseModalidade.statusCode == 200) {
+        // No seu JSON: "esporteId": "3fa85f64..."
+        final String? esporteId = responseModalidade.data['esporteId'];
 
-      if (esporteId == null) return [];
+        if (esporteId == null) {
+          debugPrint(
+            'Aviso: esporteId não encontrado na modalidade $modalidadeId',
+          );
+          return [];
+        }
 
-      // 2. Com o esporte_id, buscamos todos os tipos de eventos associados a esse esporte
-      // Note: No seu banco a tabela chama-se 'tipos_eventos'
-      final List<dynamic> eventosData = await _supabase
-          .from('tipos_eventos')
-          .select('*')
-          .eq('esporte_id', esporteId);
+        // 2. Busca os tipos de eventos usando o esporteId obtido
+        // Endpoint: /api/v1/esportes/{id}/tipos-eventos
+        final responseEventos = await _dio.get(
+          '/esportes/$esporteId/tipos-eventos',
+        );
 
-      // 3. Converte para sua lista de modelos
-      return eventosData.map((e) => TipoEventoEsporte.fromJson(e)).toList();
+        if (responseEventos.statusCode == 200) {
+          final List<dynamic> data = responseEventos.data;
+
+          // 3. Converte o JSON para a lista de modelos TipoEventoEsporte
+          return data.map((e) => TipoEventoEsporte.fromMap(e)).toList();
+        }
+      }
+
+      return [];
+    } on DioException catch (e) {
+      debugPrint('Erro ao buscar tipos de evento: ${e.message}');
+      return [];
     } catch (e) {
+      debugPrint('Erro inesperado: $e');
       return [];
     }
   }
 
-  /// Busca os atletas inscritos de uma equipe específica via API
+  /// BUSCA OS ATLETAS INSCRITOS EM CADA EQUIPE
   Future<List<dynamic>> buscarInscritos(String equipeId) async {
     try {
       // Faz a chamada para o seu endpoint específico
@@ -244,14 +257,4 @@ class PartidaService {
     }
   }
 
-  /// Exemplo de lógica para "Ver Meus" (filtros locais) CORRIGIR
-  List<Partida> filtrarPorAtletica(List<Partida> lista, String atleticaId) {
-    return lista
-        .where(
-          (p) =>
-              p.equipeA?.atleticaId == atleticaId ||
-              p.equipeB?.atleticaId == atleticaId,
-        )
-        .toList();
-  }
 }

@@ -2,7 +2,7 @@ class TipoEventoEsporte {
   final String id;
   final String esporteId;
   final String nome;
-  final int? idx; // Opcional, caso queira manter a ordem do arquivo txt
+  final int? idx; 
 
   TipoEventoEsporte({
     required this.id,
@@ -11,32 +11,38 @@ class TipoEventoEsporte {
     this.idx,
   });
 
-  // Transforma o JSON do Supabase ou do arquivo TXT em objeto Dart
-  factory TipoEventoEsporte.fromJson(Map<String, dynamic> json) {
+  // Alterado para 'fromMap' para seguir o padrão de nomes da sua nova API
+  factory TipoEventoEsporte.fromMap(Map<String, dynamic> json) {
     return TipoEventoEsporte(
-      id: json['id'] as String,
-      esporteId: json['esporte_id'] as String,
-      nome: json['nome'] as String,
-      idx: json['idx'] as int?, // Trata como opcional pois nem sempre vem do banco
+      id: json['id'] as String? ?? '',
+      // Ajustado: A API retorna 'esporteId' e não 'esporte_id'
+      esporteId: json['esporteId'] as String? ?? '', 
+      nome: json['nome'] as String? ?? '',
+      idx: json['idx'] as int?, 
     );
   }
 
-  // Útil para quando você precisar enviar dados de volta ou salvar localmente
-  Map<String, dynamic> toJson() {
+  // Mapeia de volta para o formato esperado pela API se necessário
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'esporte_id': esporteId,
+      'esporteId': esporteId,
       'nome': nome,
       if (idx != null) 'idx': idx,
     };
   }
 
-  // Helper para exibir o nome formatado (ex: de "GOL" para "Gol")
+  /// Helper para exibir o nome formatado (ex: "CARTAO_AMARELO" -> "Cartao amarelo")
   String get nomeFormatado {
     if (nome.isEmpty) return "";
-    return nome.replaceAll('_', ' ').toLowerCase().replaceFirst(
-      nome[0].toLowerCase(), 
-      nome[0].toUpperCase()
-    );
+    
+    // Substitui underscores por espaços
+    String formatada = nome.replaceAll('_', ' ').toLowerCase();
+    
+    // Coloca a primeira letra em maiúsculo
+    return formatada.replaceFirst(formatada[0], formatada[0].toUpperCase());
   }
+
+  /// Método de conveniência para manter compatibilidade com nomes antigos
+  factory TipoEventoEsporte.fromJson(Map<String, dynamic> json) => TipoEventoEsporte.fromMap(json);
 }
