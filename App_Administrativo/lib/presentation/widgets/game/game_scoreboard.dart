@@ -9,6 +9,7 @@ class GameScoreboard extends StatelessWidget {
   final int golsB;
   final PeriodoPartida periodoAtual;
   final bool emPausaTecnica;
+  final bool rodando;
   final String timeEmPausaTecnica;
   final int segundosPausaTecnica;
   final bool Function(bool) podeUsarPausaTecnica;
@@ -23,6 +24,7 @@ class GameScoreboard extends StatelessWidget {
     required this.golsB,
     required this.periodoAtual,
     required this.emPausaTecnica,
+    required this.rodando,
     required this.timeEmPausaTecnica,
     required this.segundosPausaTecnica,
     required this.podeUsarPausaTecnica,
@@ -50,7 +52,10 @@ class GameScoreboard extends StatelessWidget {
   }
 
   Widget _buildTeamScore(String nome, IconData icon, int gols, bool isTimeA) {
-    bool podeUsarPausa = podeUsarPausaTecnica(isTimeA) &&
+    // AJUSTE: Adicionada a verificação 'rodando'
+    bool podeUsarPausa =
+        rodando &&
+        podeUsarPausaTecnica(isTimeA) &&
         (periodoAtual == PeriodoPartida.primeiroTempo ||
             periodoAtual == PeriodoPartida.segundoTempo ||
             periodoAtual == PeriodoPartida.prorrogacao);
@@ -76,7 +81,8 @@ class GameScoreboard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Botão de pausa técnica
+
+        // 1. Botão de solicitar pausa (Só aparece se rodando e tiver direito)
         if (podeUsarPausa && !emPausaTecnica)
           GestureDetector(
             onTap: () => onPausaTecnicaIniciada(isTimeA),
@@ -96,6 +102,7 @@ class GameScoreboard extends StatelessWidget {
               ),
             ),
           )
+        // 2. Botão de finalizar pausa (Aparece se já estiver em pausa)
         else if (emPausaTecnica && timeEmPausaTecnica == nome)
           GestureDetector(
             onTap: onPausaTecnicaFinalizada,
@@ -115,7 +122,10 @@ class GameScoreboard extends StatelessWidget {
               ),
             ),
           )
+        // 3. Indicador de Pausa Esgotada (Só aparece se o cronômetro estiver rodando ou
+        // em período de jogo, mas o time já usou o seu direito)
         else if (!podeUsarPausa &&
+            rodando &&
             (periodoAtual == PeriodoPartida.primeiroTempo ||
                 periodoAtual == PeriodoPartida.segundoTempo ||
                 periodoAtual == PeriodoPartida.prorrogacao))
@@ -134,6 +144,7 @@ class GameScoreboard extends StatelessWidget {
               ),
             ),
           )
+        // 4. Espaçador caso não cumpra nenhuma condição (Partida pausada ou intervalo)
         else
           const SizedBox(height: 20),
       ],

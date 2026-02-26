@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:kyarem_eventos/models/partida_model.dart';
 import 'package:kyarem_eventos/models/tipo_evento_model.dart';
 import 'package:kyarem_eventos/models/atleta_model.dart';
+import 'package:kyarem_eventos/models/helpers/evento_partida_model.dart';
 import 'package:kyarem_eventos/presentation/screens/game/resumo_partida_screen.dart';
 import 'package:kyarem_eventos/services/partida_service.dart';
 import '../../widgets/layout/gradient_background.dart';
@@ -20,50 +21,6 @@ enum PeriodoPartida {
   prorrogacao,
   acrescimo,
   finalizada,
-}
-
-class EventoPartida {
-  final String tipo;
-  final String? jogadorNome;              
-  final int? jogadorNumero;  
-  final Color? corTime;      
-  final String horario;
-
-  EventoPartida({
-    required this.tipo,
-    required this.horario,
-    this.jogadorNome,        
-    this.jogadorNumero,      
-    this.corTime,            
-  });
-
-  String get descricao {
-    switch (tipo) {
-      case 'INICIO_1_TEMPO':
-        return 'Início do 1º Tempo';
-      case 'FIM_1_TEMPO':
-        return 'Fim do 1º Tempo';
-      case 'INTERVALO':
-        return 'Partida no Intervalo';
-      case 'INICIO_2_TEMPO':
-        return 'Início do 2º Tempo';
-      case 'PARTIDA_PAUSADA':
-        return 'Partida Pausada';
-      case 'PARTIDA_RETOMADA':
-        return 'Partida Retomada';
-      case 'PAUSA_TECNICA':
-        return '🔴 Pausa Técnica';
-      case 'ACRESCIMO':
-        return 'Partida em Acrescimo';
-      case 'ACRESCIMO_DADO':
-        return 'Acrescimo concedido';
-      case 'FIM_PARTIDA':
-        return '🏁 Fim de Jogo';
-      default:
-        // Se houver número, exibe formato de jogador, senão apenas o tipo
-        return jogadorNumero != null ? '$tipo #$jogadorNumero' : tipo;
-    }
-  }
 }
 
 class PartidaRunningScreen extends StatefulWidget {
@@ -235,9 +192,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       setState(() {
         _tiposDeEventosDisponiveis = tipos;
       });
-      debugPrint(
-        _tiposDeEventosDisponiveis.map((e) => e.nome).toList().toString(),
-      );
     } catch (e) {}
   }
 
@@ -270,9 +224,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
     // 3. Salvar no Banco de Dados com a ID real
     if (tipoEvento.id.isNotEmpty) {
-      debugPrint(
-        'Salvando no banco: ${tipoEvento.nome} (ID: ${tipoEvento.id})',
-      );
       await _partidaService.salvarEvento(
         partidaId: widget.partida.id,
         tipoEventoId: tipoEvento.id,
@@ -662,6 +613,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         break;
     }
 
+    _registrarEventoSistemico('PAUSA_TECNICA');
+
     // Timer de 1 minuto (60 segundos) para pausa técnica
     _timerPausaTecnica = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -686,6 +639,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
     _timeEmPausaTecnica = '';
     _segundosPausaTecnica = 0;
+
+    _registrarEventoSistemico('FIM_PAUSA_TECNICA');
   }
 
   void _alternarCronometro() {
@@ -746,28 +701,19 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   }
 
   void _registrarEvento(TipoEventoEsporte tipoObjeto) {
-    // 1. Validações de Estado da Partida (Mantidas)
+    // 1. Validações de Estado da Partida
     if (_periodoAtual == PeriodoPartida.naoIniciada) {
-      _mostrarAviso(
-        "Não é possível registrar eventos antes de iniciar a partida!",
-        Colors.orange,
-      );
+      _mostrarAviso("Inicie a partida primeiro!", Colors.orange);
       return;
     }
 
     if (_periodoAtual == PeriodoPartida.finalizada) {
-      _mostrarAviso(
-        "Não é possível registrar eventos com a partida encerrada!",
-        Colors.red,
-      );
+      _mostrarAviso("Partida já encerrada!", Colors.red);
       return;
     }
 
     if (_periodoAtual == PeriodoPartida.intervalo) {
-      _mostrarAviso(
-        "Não é possível registrar eventos durante o intervalo!",
-        Colors.blue,
-      );
+      _mostrarAviso("Não é possível registrar no intervalo!", Colors.blue);
       return;
     }
 
@@ -776,32 +722,32 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       return;
     }
 
-    // 2. Extraímos o nome para facilitar as comparações lógicas
+    // 2. Extraímos informações básicas
     final String nomeEvento = tipoObjeto.nome.trim();
+    final String tempoFormatado = _formatarTempo(_segundos);
 
-    // 3. Tratamento especial para substituições
+    // 3. Tratamento para substituições
     if (nomeEvento.toLowerCase() == "substituição") {
-      _abrirModalSubstituicaoNovo(); // O seu método de substituição já lida com o estado
+      _abrirModalSubstituicaoNovo();
       return;
     }
 
-    // 4. Guardar informações do jogador e identificar o time
     final jogador = _jogadorSelecionado!;
     final isTimeA = _jogadoresA.contains(jogador);
 
-    // 5. Criar objeto de evento para a UI (Feed)
+    // 4. Criar objeto de evento para a UI (Feed)
+    // AJUSTE: Adicionado o timestamp exigido pelo novo modelo abstraído
     final novoEventoFeed = EventoPartida(
-      tipo:
-          tipoObjeto.nomeFormatado, // Usando o helper que você criou no modelo
+      tipo: tipoObjeto.nomeFormatado,
       corTime: jogador.corTime ?? Colors.grey,
       jogadorNome: jogador.nome,
       jogadorNumero: jogador.numero,
-      horario: _formatarTempo(_segundos),
+      horario: tempoFormatado,
     );
 
-    // 6. Atualização do Estado (Placar e Lista de Eventos)
+    // 5. Atualização do Estado Local (UI)
     setState(() {
-      // Lógica para aumentar placar se for GOL
+      // Lógica de Gols
       if (nomeEvento.toLowerCase() == "gol") {
         if (isTimeA) {
           _golsA++;
@@ -809,6 +755,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           _golsB++;
         }
 
+        // Atualiza o placar global via API
         _partidaService.atualizarPartida(
           widget.partida.id,
           golsA: _golsA,
@@ -816,14 +763,20 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         );
       }
 
-      // Adiciona no início da lista do feed
       _eventosPartida.insert(0, novoEventoFeed);
-
-      // Limpa a seleção do jogador para evitar registros duplicados por erro
-      _jogadorSelecionado = null;
+      _jogadorSelecionado = null; // Limpa seleção
     });
 
-    // 7. Feedback visual para o usuário
+    // 6. Persistência no Banco de Dados/API
+
+    _partidaService.salvarEvento(
+      partidaId: widget.partida.id,
+      tipoEventoId: tipoObjeto.id,
+      tempoFormatado: _segundos,
+      atletaId: jogador.atletaId,
+    );
+
+    // 7. Feedback visual
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -833,14 +786,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
-
-    debugPrint('--- ⚽ NOVO EVENTO REGISTRADO ---');
-    debugPrint('ID Tipo Evento: ${tipoObjeto.id}');
-    debugPrint('Nome (DB):      ${tipoObjeto.nome}');
-    debugPrint('Nome (Format):  ${tipoObjeto.nomeFormatado}');
-    debugPrint('Atleta:         ${jogador.nome} (#${jogador.numero})');
-    debugPrint('Tempo Partida:  ${_formatarTempo(_segundos)}');
-    debugPrint('---------------------------------');
   }
 
   // Helper simples para reduzir repetição de código nas validações
@@ -1023,6 +968,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                           golsB: _golsB,
                           periodoAtual: _periodoAtual,
                           emPausaTecnica: _emPausaTecnica,
+                          rodando: _rodando,
                           timeEmPausaTecnica: _timeEmPausaTecnica,
                           segundosPausaTecnica: _segundosPausaTecnica,
                           podeUsarPausaTecnica: _podeUsarPausaTecnica,
@@ -1426,6 +1372,25 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
+      );
+
+      final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
+        (e) => e.nome == 'SUBSTITUIÇÃO',
+        orElse: () => TipoEventoEsporte(
+          id: '',
+          nome: 'SUBSTITUIÇÃO',
+          esporteId: '',
+          idx: 0,
+        ),
+      );
+
+      _partidaService.salvarEvento(
+        partidaId: widget.partida.id,
+        tipoEventoId: tipoEvento.id,
+        tempoFormatado: _segundos,
+        atletaId: entrando.atletaId,
+        atletaSaiId: saindo.atletaId,
+        isSubstitution: true,
       );
 
       _jogadorSelecionado = null;

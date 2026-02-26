@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../screens/game/partida_screen.dart';
+import 'package:kyarem_eventos/models/helpers/evento_partida_model.dart';
 
 /// Widget do feed horizontal de eventos da partida
 class GameEventsFeed extends StatelessWidget {
