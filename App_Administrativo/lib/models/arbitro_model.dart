@@ -8,7 +8,7 @@ class Arbitro {
   factory Arbitro.fromMap(Map<String, dynamic> map) {
     return Arbitro(
       id: map['id'],
-      nome: map['nome_exibicao'] ?? 'Sem nome', 
+      nome: map['nomeExibicao'] ?? 'Sem nome', 
       fotoUrl: map['foto_url'],
     );
   }

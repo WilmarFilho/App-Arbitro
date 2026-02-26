@@ -273,18 +273,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                GestureDetector(
-                  onTap: () => setState(() => _verMeus = !_verMeus),
-                  child: Text(
-                    _verMeus ? 'Ver Tudo' : 'Ver Meus',
-                    style: TextStyle(
-                      color: _verMeus
-                          ? const Color(0xFFF85C39)
-                          : Colors.grey[600],
-                      fontWeight: FontWeight.bold,
+                // MUDANÇA 1: Só exibe se a aba selecionada for "Jogos"
+                if (_abaSelecionada == 'Jogos')
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _verMeus = !_verMeus;
+                      });
+                    },
+                    child: Text(
+                      _verMeus ? 'Ver Tudo' : 'Ver Meus',
+                      style: TextStyle(
+                        color: _verMeus
+                            ? const Color(0xFFF85C39)
+                            : Colors.grey[600],
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -300,14 +306,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           end: Offset.zero,
                         ),
                       ),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 120),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: _itensListaInferior.length,
-                        itemBuilder: (context, index) {
-                          return HomeListItem(
-                            item: _itensListaInferior[index],
-                            type: _abaSelecionada,
+                      child: Builder(
+                        builder: (context) {
+                          // MUDANÇA 2: Define qual lista usar
+                          // Se for "Jogos" e "Ver Meus" estiver ativo, usa os destaques (minhas partidas)
+                          final bool mostrarMeusJogos = _abaSelecionada == 'Jogos' && _verMeus;
+                          final listaParaExibir = mostrarMeusJogos 
+                              ? _partidasDestaque 
+                              : _itensListaInferior;
+
+                          if (listaParaExibir.isEmpty) {
+                            return Center(
+                              child: Text(
+                                "Nenhum registro encontrado",
+                                style: TextStyle(color: Colors.grey[400]),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 120),
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: listaParaExibir.length,
+                            itemBuilder: (context, index) {
+                              return HomeListItem(
+                                item: listaParaExibir[index],
+                                type: _abaSelecionada,
+                              );
+                            },
                           );
                         },
                       ),

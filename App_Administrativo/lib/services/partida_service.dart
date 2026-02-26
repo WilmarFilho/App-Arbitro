@@ -55,48 +55,66 @@ class PartidaService {
     );
   }
 
+  /// MÉTODO MESTRE: Encaminha a busca baseada na aba selecionada
   Future<List<dynamic>> buscarDadosPorAba(String aba) async {
     try {
-      if (aba == 'Jogos') {
-        // AGORA BUSCA TODAS AS PARTIDAS GLOBAIS
-        return await listarTodasPartidas();
-      } else if (aba == 'Árbitros') {
-        final response = await _supabase
-            .from('profiles')
-            .select('*')
-            .eq('role', 'arbitro')
-            .order('nome_exibicao');
-        return (response as List).map((m) => Arbitro.fromMap(m)).toList();
-      } else {
-        // Campeonatos
-        // Endpoint global da API (sem o sufixo /minhas)
-        final response = await _dio.get('/campeonatos');
-
-        if (response.statusCode == 200) {
-          final List<dynamic> data = response.data;
-          // 2. Mapeie para o Model de Campeonato que ajustamos antes
-          return data.map((m) => Campeonato.fromMap(m)).toList();
-        }
-        return [];
+      switch (aba) {
+        case 'Jogos':
+          return await listarTodasPartidas();
+        case 'Árbitros':
+          return await listarTodosArbitros();
+        case 'Campeonatos':
+          return await listarTodosCampeonatos();
+        default:
+          return [];
       }
     } catch (e) {
+      debugPrint("Erro em buscarDadosPorAba: $e");
       return [];
     }
   }
 
-  /// BUSCA TODAS PARTIDAS
+  /// BUSCA TODAS AS PARTIDAS
   Future<List<Partida>> listarTodasPartidas() async {
     try {
-      // Endpoint global da API (sem o sufixo /minhas)
       final response = await _dio.get('/partidas');
-
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((m) => Partida.fromMap(m)).toList();
       }
       return [];
     } on DioException catch (e) {
-      debugPrint('Erro ao buscar todas as partidas via API: ${e.message}');
+      debugPrint('Erro ao buscar partidas: ${e.message}');
+      return [];
+    }
+  }
+
+  /// BUSCA TODOS OS ÁRBITROS
+  Future<List<Arbitro>> listarTodosArbitros() async {
+    try {
+      final response = await _dio.get('/arbitros');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((m) => Arbitro.fromMap(m)).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      debugPrint('Erro ao buscar árbitros: ${e.message}');
+      return [];
+    }
+  }
+
+  /// BUSCA TODOS OS CAMPEONATOS
+  Future<List<Campeonato>> listarTodosCampeonatos() async {
+    try {
+      final response = await _dio.get('/campeonatos');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((m) => Campeonato.fromMap(m)).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      debugPrint('Erro ao buscar campeonatos: ${e.message}');
       return [];
     }
   }
@@ -124,7 +142,7 @@ class PartidaService {
     }
   }
 
-  /// Salvar novo evento da partida
+  /// Salvar novo evento da partida SUPABASE
   Future<void> salvarEvento({
     required String partidaId,
     required String tipoEventoId,
@@ -152,6 +170,7 @@ class PartidaService {
     }
   }
 
+  /// Atualiza partida SUPABASE
   Future<void> atualizarPartida(
     String partidaId, {
     String? novoStatus,
@@ -173,7 +192,7 @@ class PartidaService {
     }
   }
 
-  /// Busca tipos de eventos do esporte da modalidade específica
+  /// Busca tipos de eventos do esporte da modalidade específica SUPABASE
   Future<List<TipoEventoEsporte>> buscarTiposDeEventoDaPartida(
     String modalidadeId,
   ) async {
@@ -225,7 +244,7 @@ class PartidaService {
     }
   }
 
-  /// Exemplo de lógica para "Ver Meus" (filtros locais)
+  /// Exemplo de lógica para "Ver Meus" (filtros locais) CORRIGIR
   List<Partida> filtrarPorAtletica(List<Partida> lista, String atleticaId) {
     return lista
         .where(

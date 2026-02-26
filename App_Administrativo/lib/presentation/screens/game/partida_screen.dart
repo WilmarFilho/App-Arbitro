@@ -24,35 +24,44 @@ enum PeriodoPartida {
 
 class EventoPartida {
   final String tipo;
-  final String jogadorNome;
-  final int jogadorNumero;
-  final Color corTime;
+  final String? jogadorNome;              
+  final int? jogadorNumero;  
+  final Color? corTime;      
   final String horario;
-  final DateTime timestamp;
 
   EventoPartida({
     required this.tipo,
-    required this.corTime,
-    required this.jogadorNome,
-    required this.jogadorNumero,
     required this.horario,
-    required this.timestamp,
+    this.jogadorNome,        
+    this.jogadorNumero,      
+    this.corTime,            
   });
 
   String get descricao {
     switch (tipo) {
       case 'INICIO_1_TEMPO':
-        return '🟢 Início do 1º Tempo';
+        return 'Início do 1º Tempo';
+      case 'FIM_1_TEMPO':
+        return 'Fim do 1º Tempo';
+      case 'INTERVALO':
+        return 'Partida no Intervalo';
       case 'INICIO_2_TEMPO':
-        return '🟢 Início do 2º Tempo';
+        return 'Início do 2º Tempo';
       case 'PARTIDA_PAUSADA':
-        return '⏸️ Partida Pausada';
+        return 'Partida Pausada';
       case 'PARTIDA_RETOMADA':
-        return '▶️ Partida Retomada';
+        return 'Partida Retomada';
       case 'PAUSA_TECNICA':
         return '🔴 Pausa Técnica';
+      case 'ACRESCIMO':
+        return 'Partida em Acrescimo';
+      case 'ACRESCIMO_DADO':
+        return 'Acrescimo concedido';
+      case 'FIM_PARTIDA':
+        return '🏁 Fim de Jogo';
       default:
-        return '$tipo #$jogadorNumero';
+        // Se houver número, exibe formato de jogador, senão apenas o tipo
+        return jogadorNumero != null ? '$tipo #$jogadorNumero' : tipo;
     }
   }
 }
@@ -249,11 +258,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     final eventoFeed = EventoPartida(
       tipo:
           nomeEventoNoBanco, // O switch do descricao no modelo vai precisar lidar com isso
-      jogadorNome: '',
-      jogadorNumero: 0,
-      corTime: Colors.green,
+      jogadorNome: null,
+      jogadorNumero: null,
+      corTime: null,
       horario: _formatarTempo(_segundos),
-      timestamp: DateTime.now(),
     );
 
     setState(() {
@@ -789,7 +797,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       jogadorNome: jogador.nome,
       jogadorNumero: jogador.numero,
       horario: _formatarTempo(_segundos),
-      timestamp: DateTime.now(),
     );
 
     // 6. Atualização do Estado (Placar e Lista de Eventos)
@@ -1407,7 +1414,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
           jogadorNumero: saindo.numero,
           corTime: saindo.corTime ?? Colors.grey,
           horario: _formatarTempo(_segundos),
-          timestamp: DateTime.now(),
         ),
       );
 
