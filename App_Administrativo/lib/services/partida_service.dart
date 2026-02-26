@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+
 import '../models/partida_model.dart';
 import '../models/arbitro_model.dart';
 import '../models/campeonato_model.dart';
@@ -15,20 +20,112 @@ class PartidaService {
   );
 
   final _supabase = Supabase.instance.client;
+  Database? _db;
+  Timer? _syncTimer;
+  bool _isSyncing = false;
 
   PartidaService() {
+    _initInterceptors();
+    _initLocalDb().then((_) {
+      _startSyncTimer();
+    });
+  }
+
+  // --- INICIALIZAÇÃO DO BANCO LOCAL (SQLITE) ---
+
+  Future<void> _initLocalDb() async {
+    try {
+      final path = join(await getDatabasesPath(), 'fila_eventos.db');
+      _db = await openDatabase(
+        path,
+        version: 1,
+        onCreate: (db, version) {
+          return db.execute(
+            '''CREATE TABLE fila_eventos (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, 
+              dados TEXT, 
+              tentativas INTEGER DEFAULT 0,
+              criado_em TEXT
+            )''',
+          );
+        },
+      );
+      debugPrint("SQFlite: Banco de dados inicializado.");
+    } catch (e) {
+      debugPrint("SQFlite: Erro ao inicializar banco: $e");
+    }
+  }
+
+  // Timer que tenta sincronizar a cada 30 segundos
+  void _startSyncTimer() {
+    _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _processarFilaOffline();
+    });
+  }
+
+  // --- LÓGICA DA FILA ---
+
+  Future<void> _processarFilaOffline() async {
+    if (_isSyncing || _db == null) return;
+    
+    _isSyncing = true;
+    try {
+      final List<Map<String, dynamic>> pendentes = await _db!.query(
+        'fila_eventos', 
+        orderBy: 'id ASC', 
+        limit: 10
+      );
+
+      if (pendentes.isEmpty) {
+        _isSyncing = false;
+        return;
+      }
+
+      debugPrint("Fila: Tentando sincronizar ${pendentes.length} eventos pendentes...");
+
+      for (var item in pendentes) {
+        final int id = item['id'];
+        final Map<String, dynamic> dados = jsonDecode(item['dados']);
+
+        try {
+          // Tenta inserir no Supabase
+          await _supabase.from('eventos_partida').insert(dados);
+          
+          // Se sucesso, remove da fila local
+          await _db!.delete('fila_eventos', where: 'id = ?', whereArgs: [id]);
+          debugPrint("Fila: Evento ID $id sincronizado com sucesso.");
+        } catch (e) {
+          debugPrint("Fila: Falha ao enviar ID $id (Internet offline?). Erro: $e");
+          
+          await _db!.update(
+            'fila_eventos', 
+            {'tentativas': (item['tentativas'] as int) + 1},
+            where: 'id = ?', 
+            whereArgs: [id]
+          );
+          // Interrompe o loop atual para tentar novamente no próximo ciclo do Timer
+          break; 
+        }
+      }
+    } catch (e) {
+      debugPrint("Fila: Erro crítico no processamento: $e");
+    } finally {
+      _isSyncing = false;
+    }
+  }
+
+  // --- INTERCEPTORS ---
+
+  void _initInterceptors() {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // O método .session dispara internamente a lógica de refresh se necessário.
           final session = _supabase.auth.currentSession;
           final token = session?.accessToken;
 
           if (token != null) {
-            // Verifica se o token está expirado manualmente (opcional, mas seguro)
             if (session!.isExpired) {
               debugPrint('DIO: Token expirado, tentando refresh...');
-              // Força o refresh da sessão
               final response = await _supabase.auth.refreshSession();
               final newToken = response.session?.accessToken;
               if (newToken != null) {
@@ -37,17 +134,12 @@ class PartidaService {
             } else {
               options.headers['Authorization'] = 'Bearer $token';
             }
-            debugPrint('DIO: Token injetado');
-          } else {
-            debugPrint('DIO: Usuário sem sessão ativa');
           }
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
-          // Se mesmo assim der 401, o usuário precisa relogar ou o refresh falhou
           if (e.response?.statusCode == 401) {
             debugPrint('DIO ERROR: Token inválido ou expirado (401)');
-            // Aqui você poderia disparar um evento para deslogar o usuário
           }
           return handler.next(e);
         },
@@ -55,18 +147,15 @@ class PartidaService {
     );
   }
 
-  /// MÉTODO MESTRE: Encaminha a busca baseada na aba selecionada
+  // --- MÉTODOS DE BUSCA (API) ---
+
   Future<List<dynamic>> buscarDadosPorAba(String aba) async {
     try {
       switch (aba) {
-        case 'Jogos':
-          return await listarTodasPartidas();
-        case 'Árbitros':
-          return await listarTodosArbitros();
-        case 'Campeonatos':
-          return await listarTodosCampeonatos();
-        default:
-          return [];
+        case 'Jogos': return await listarTodasPartidas();
+        case 'Árbitros': return await listarTodosArbitros();
+        case 'Campeonatos': return await listarTodosCampeonatos();
+        default: return [];
       }
     } catch (e) {
       debugPrint("Erro em buscarDadosPorAba: $e");
@@ -74,7 +163,6 @@ class PartidaService {
     }
   }
 
-  /// BUSCA TODAS AS PARTIDAS
   Future<List<Partida>> listarTodasPartidas() async {
     try {
       final response = await _dio.get('/partidas');
@@ -89,7 +177,6 @@ class PartidaService {
     }
   }
 
-  /// BUSCA TODOS OS ÁRBITROS
   Future<List<Arbitro>> listarTodosArbitros() async {
     try {
       final response = await _dio.get('/arbitros');
@@ -104,7 +191,6 @@ class PartidaService {
     }
   }
 
-  /// BUSCA TODOS OS CAMPEONATOS
   Future<List<Campeonato>> listarTodosCampeonatos() async {
     try {
       final response = await _dio.get('/campeonatos');
@@ -119,142 +205,118 @@ class PartidaService {
     }
   }
 
-  /// BUSCA PARTIDAS DO USUÁRIO
   Future<List<Partida>> listarPartidasMinhas() async {
     try {
       final response = await _dio.get('/partidas/minhas');
-
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
-
-        // Converte o JSON da API para a lista de objetos Partida
         return data.map((m) => Partida.fromMap(m)).toList();
       }
-
-      return [];
-    } on DioException catch (e) {
-      // Aqui você pode tratar erros de conexão ou 401 (não autorizado)
-      debugPrint('Erro ao buscar partidas da API: ${e.message}');
       return [];
     } catch (e) {
-      debugPrint('Erro inesperado: $e');
+      debugPrint('Erro ao buscar minhas partidas: $e');
       return [];
     }
   }
 
-  /// Salvar novo evento da partida SUPABASE
+  // --- MÉTODOS DE ESCRITA (COM SUPORTE OFFLINE) ---
+
+  /// Salva o evento primeiro no Banco Local e dispara a tentativa de envio
   Future<void> salvarEvento({
     required String partidaId,
     required String tipoEventoId,
     String? equipeId,
-    String? atletaId, // UUID do atleta
-    String? atletaSaiId, // UUID do atleta que sai (em caso de substituição)
-    required int tempoFormatado, // Texto como "08:15"
+    String? atletaId,
+    String? atletaSaiId,
+    required int tempoFormatado,
     String? descricao,
     bool isSubstitution = false,
   }) async {
+    final Map<String, dynamic> payload = {
+      'partida_id': partidaId,
+      'tipo_evento_id': tipoEventoId,
+      'equipe_id': equipeId,
+      'atleta_id': atletaId,
+      'atleta_sai_id': atletaSaiId,
+      'tempo_cronometro': tempoFormatado,
+      'descricao_detalhada': descricao,
+      'is_substitution': isSubstitution,
+      'criado_em': DateTime.now().toIso8601String(),
+    };
+
     try {
-      await _supabase.from('eventos_partida').insert({
-        'partida_id': partidaId,
-        'tipo_evento_id': tipoEventoId,
-        'equipe_id': equipeId,
-        'atleta_id': atletaId,
-        'atleta_sai_id': atletaSaiId,
-        'tempo_cronometro': tempoFormatado,
-        'descricao_detalhada': descricao,
-        'is_substitution': isSubstitution,
-        'criado_em': DateTime.now().toIso8601String(),
-      });
+      if (_db != null) {
+        await _db!.insert('fila_eventos', {
+          'dados': jsonEncode(payload),
+          'tentativas': 0,
+          'criado_em': payload['criado_em']
+        });
+        debugPrint("Sucesso: Evento registrado localmente.");
+        
+        // Tenta processar a fila imediatamente
+        _processarFilaOffline();
+      } else {
+        // Fallback caso o banco falhe por algum motivo bizarro
+        await _supabase.from('eventos_partida').insert(payload);
+      }
     } catch (e) {
+      debugPrint("Erro ao salvar evento (Cache ou Supabase): $e");
       rethrow;
     }
   }
 
-  /// Atualiza partida SUPABASE
   Future<void> atualizarPartida(
     String partidaId, {
     String? novoStatus,
     int? golsA,
     int? golsB,
   }) async {
-    // Criamos um mapa apenas com o que não for nulo
     final Map<String, dynamic> dadosParaAtualizar = {};
-
     if (novoStatus != null) dadosParaAtualizar['status'] = novoStatus;
     if (golsA != null) dadosParaAtualizar['placar_a'] = golsA;
     if (golsB != null) dadosParaAtualizar['placar_b'] = golsB;
 
     if (dadosParaAtualizar.isNotEmpty) {
-      await _supabase
-          .from('partidas')
-          .update(dadosParaAtualizar)
-          .eq('id', partidaId);
+      await _supabase.from('partidas').update(dadosParaAtualizar).eq('id', partidaId);
     }
   }
 
-  /// BUSCA TIPOS DE EVENTOS BASEADOS NA MODALIDADE DA PARTIDA
-  Future<List<TipoEventoEsporte>> buscarTiposDeEventoDaPartida(
-    String modalidadeId,
-  ) async {
+  // --- OUTRAS BUSCAS ---
+
+  Future<List<TipoEventoEsporte>> buscarTiposDeEventoDaPartida(String modalidadeId) async {
     try {
-      // 1. Busca os detalhes da modalidade para descobrir qual é o Esporte
       final responseModalidade = await _dio.get('/modalidades/$modalidadeId');
-
       if (responseModalidade.statusCode == 200) {
-        // No seu JSON: "esporteId": "3fa85f64..."
         final String? esporteId = responseModalidade.data['esporteId'];
+        if (esporteId == null) return [];
 
-        if (esporteId == null) {
-          debugPrint(
-            'Aviso: esporteId não encontrado na modalidade $modalidadeId',
-          );
-          return [];
-        }
-
-        // 2. Busca os tipos de eventos usando o esporteId obtido
-        // Endpoint: /api/v1/esportes/{id}/tipos-eventos
-        final responseEventos = await _dio.get(
-          '/esportes/$esporteId/tipos-eventos',
-        );
-
+        final responseEventos = await _dio.get('/esportes/$esporteId/tipos-eventos');
         if (responseEventos.statusCode == 200) {
           final List<dynamic> data = responseEventos.data;
-
-          // 3. Converte o JSON para a lista de modelos TipoEventoEsporte
           return data.map((e) => TipoEventoEsporte.fromMap(e)).toList();
         }
       }
-
-      return [];
-    } on DioException catch (e) {
-      debugPrint('Erro ao buscar tipos de evento: ${e.message}');
       return [];
     } catch (e) {
-      debugPrint('Erro inesperado: $e');
+      debugPrint('Erro ao buscar tipos de evento: $e');
       return [];
     }
   }
 
-  /// BUSCA OS ATLETAS INSCRITOS EM CADA EQUIPE
   Future<List<dynamic>> buscarInscritos(String equipeId) async {
     try {
-      // Faz a chamada para o seu endpoint específico
       final response = await _dio.get('/equipes/$equipeId/inscritos');
-
       if (response.statusCode == 200) {
-        // O retorno já é uma lista de objetos conforme seu exemplo JSON
         return response.data as List<dynamic>;
       }
-
-      return [];
-    } on DioException catch (e) {
-      debugPrint('Erro Dio ao buscar inscritos: ${e.message}');
-      // Opcional: tratar erros específicos como 404 ou 500
       return [];
     } catch (e) {
-      debugPrint('Erro inesperado ao buscar inscritos: $e');
+      debugPrint('Erro ao buscar inscritos: $e');
       return [];
     }
   }
 
+  void dispose() {
+    _syncTimer?.cancel();
+  }
 }
