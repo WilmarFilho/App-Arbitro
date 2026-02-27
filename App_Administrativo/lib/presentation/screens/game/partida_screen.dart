@@ -235,7 +235,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       await _partidaService.salvarEvento(
         partidaId: widget.partida.id,
         tipoEventoId: tipoEvento.id,
-        tempoFormatado: _segundos,
+        tempoFormatado: _formatarTempo(_segundos),
       );
     }
   }
@@ -788,13 +788,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         } else {
           _golsB++;
         }
-
-        // Atualiza o placar global via API
-        _partidaService.atualizarPartida(
-          widget.partida.id,
-          golsA: _golsA,
-          golsB: _golsB,
-        );
       }
 
       _eventosPartida.insert(0, novoEventoFeed);
@@ -805,8 +798,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
     _partidaService.salvarEvento(
       partidaId: widget.partida.id,
+      equipeId: jogador.equipeId,
       tipoEventoId: tipoObjeto.id,
-      tempoFormatado: _segundos,
+      tempoFormatado:  _formatarTempo(_segundos),
       atletaId: jogador.atletaId,
     );
 
@@ -1482,7 +1476,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       _partidaService.salvarEvento(
         partidaId: widget.partida.id,
         tipoEventoId: tipoEvento.id,
-        tempoFormatado: _segundos,
+        tempoFormatado:  _formatarTempo(_segundos),
         atletaId: entrando.atletaId,
         atletaSaiId: saindo.atletaId,
         isSubstitution: true,

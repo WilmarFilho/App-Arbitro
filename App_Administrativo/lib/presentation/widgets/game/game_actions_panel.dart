@@ -60,6 +60,7 @@ class GameActionsPanel extends StatelessWidget {
       "intervalo",
       'acrescimo'
     ];
+    
     // Filtra o que sobrou (ex: Tiro Lateral, Escanteio, etc) e ignora os excluídos
     final outrosEventos = tiposDeEventos.where((e) {
       final nomeLow = e.nome.toLowerCase();

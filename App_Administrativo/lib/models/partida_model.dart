@@ -38,7 +38,7 @@ class Partida {
     return Partida(
       id: map['id'] ?? '',
       modalidadeId: map['modalidadeId'] ?? '',
-      status: sumula?['status'] ?? map['status'] ?? 'agendada',
+      status: map['status'],
       equipeAId: map['equipeAId'],
       equipeBId: map['equipeBId'],
       placarA: map['placarA'] ?? 0,
