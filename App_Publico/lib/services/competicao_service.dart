@@ -57,6 +57,19 @@ class CompeticaoService {
     }
     return [];
   }
+  
+  /// Busca uma equipe específica na API REST (/api/v1/equipes/{id})
+  Future<Equipe?> buscarEquipePorId(String id) async {
+    try {
+      final res = await _client.get('/equipes/$id');
+      if (res.statusCode == 200 && res.data is Map) {
+        return Equipe.fromMap(Map<String, dynamic>.from(res.data as Map));
+      }
+    } catch (e) {
+      debugPrint('buscarEquipePorId error: $e');
+    }
+    return null;
+  }
 
   Future<List<PartidaApi>> listarPartidas({String? modalidadeId, String? status}) async {
     try {
