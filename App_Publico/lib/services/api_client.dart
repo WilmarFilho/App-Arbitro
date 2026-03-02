@@ -36,14 +36,27 @@ class ApiClient {
             final token = session?.accessToken;
 
             if (token != null) {
+              if (kDebugMode) {
+                debugPrint('Supabase JWT (antes do refresh): $token');
+              }
+
               if (session!.isExpired) {
                 final refreshed = await _supabase.auth.refreshSession();
                 final newToken = refreshed.session?.accessToken;
+
+                if (kDebugMode) {
+                  debugPrint('Supabase JWT (depois do refresh): ${newToken ?? 'null'}');
+                }
+
                 if (newToken != null) {
                   options.headers['Authorization'] = 'Bearer $newToken';
                 }
               } else {
                 options.headers['Authorization'] = 'Bearer $token';
+              }
+            } else {
+              if (kDebugMode) {
+                debugPrint('Supabase JWT: sessão nula ou sem token, request sem Authorization.');
               }
             }
           } catch (e) {

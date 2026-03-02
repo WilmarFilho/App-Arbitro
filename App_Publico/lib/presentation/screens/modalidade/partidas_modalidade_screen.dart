@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../models/modalidade_model.dart';
 import '../../../models/partida_api_model.dart';
 import '../../../services/competicao_service.dart';
+import '../../widgets/layout/bottom_navigation_widget.dart';
 import '../game/partida_screen.dart';
 
 class PartidasModalidadeScreen extends StatefulWidget {
@@ -146,37 +147,45 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          _buildHeader(titulo),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFFF85C39)))
-                : RefreshIndicator(
-                    onRefresh: _carregar,
-                    color: const Color(0xFFF85C39),
-                    child: _partidas.isEmpty
-                        ? ListView(
-                            children: const [
-                              SizedBox(height: 80),
-                              Center(
-                                child: Text(
-                                  'Nenhuma partida encontrada.',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
+          Column(
+            children: [
+              _buildHeader(titulo),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xFFF85C39)))
+                    : RefreshIndicator(
+                        onRefresh: _carregar,
+                        color: const Color(0xFFF85C39),
+                        child: _partidas.isEmpty
+                            ? ListView(
+                                children: const [
+                                  SizedBox(height: 80),
+                                  Center(
+                                    child: Text(
+                                      'Nenhuma partida encontrada.',
+                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
+                                itemCount: _partidas.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                itemBuilder: (context, i) => _PartidaTile(
+                                  partida: _partidas[i],
+                                  onTap: () => _abrirDetalhe(_partidas[i]),
                                 ),
                               ),
-                            ],
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                            itemCount: _partidas.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
-                            itemBuilder: (context, i) => _PartidaTile(
-                              partida: _partidas[i],
-                              onTap: () => _abrirDetalhe(_partidas[i]),
-                            ),
-                          ),
-                  ),
+                      ),
+              ),
+            ],
+          ),
+          const Align(
+            alignment: Alignment.bottomCenter,
+            child: BottomNavigationWidget(currentRoute: '/modalidades'),
           ),
         ],
       ),
