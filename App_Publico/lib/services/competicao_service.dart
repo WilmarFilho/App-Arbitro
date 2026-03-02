@@ -60,6 +60,7 @@ class CompeticaoService {
   
   /// Busca uma equipe específica na API REST (/api/v1/equipes/{id})
   Future<Equipe?> buscarEquipePorId(String id) async {
+    debugPrint('RRRRRRRRRRRRRRbuscarEquipePorId: $id');
     try {
       final res = await _client.get('/equipes/$id');
       if (res.statusCode == 200 && res.data is Map) {
