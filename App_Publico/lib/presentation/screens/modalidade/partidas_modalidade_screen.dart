@@ -18,7 +18,8 @@ class PartidasModalidadeScreen extends StatefulWidget {
   });
 
   @override
-  State<PartidasModalidadeScreen> createState() => _PartidasModalidadeScreenState();
+  State<PartidasModalidadeScreen> createState() =>
+      _PartidasModalidadeScreenState();
 }
 
 enum _FiltroStatus { todas, agendadas, emAndamento, finalizadas }
@@ -42,7 +43,10 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
 
     // 1) Partidas (API)
     final statusApi = _statusParaApi(_filtro);
-    final partidas = await _service.listarPartidas(modalidadeId: widget.modalidade.id, status: statusApi);
+    final partidas = await _service.listarPartidas(
+      modalidadeId: widget.modalidade.id,
+      status: statusApi,
+    );
 
     // 2) Montar conjunto de IDs de equipes usadas nas partidas
     final idsEquipes = <String>{};
@@ -71,26 +75,34 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
     var enriched = partidas
         .map(
           (p) => p.copyWith(
-            equipeANome: p.equipeAId != null ? _equipeNomeById[p.equipeAId!] : null,
-            equipeBNome: p.equipeBId != null ? _equipeNomeById[p.equipeBId!] : null,
+            equipeANome: p.equipeAId != null
+                ? _equipeNomeById[p.equipeAId!]
+                : null,
+            equipeBNome: p.equipeBId != null
+                ? _equipeNomeById[p.equipeBId!]
+                : null,
           ),
         )
         .toList();
 
     // 5) Filtro "Em andamento" (o back-end valida status exato, então filtramos no app)
     if (_filtro == _FiltroStatus.emAndamento) {
-      enriched = enriched
-          .where((p) {
-            final st = p.status.trim().toLowerCase();
-            return st != 'agendada' && st != 'finalizada';
-          })
-          .toList();
+      enriched = enriched.where((p) {
+        final st = p.status.trim().toLowerCase();
+        return st != 'agendada' && st != 'finalizada';
+      }).toList();
     }
 
     // 6) Ordenação: agendadaPor/iniciadaEm
     enriched.sort((a, b) {
-      final da = a.agendadoPara ?? a.iniciadaEm ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final db = b.agendadoPara ?? b.iniciadaEm ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final da =
+          a.agendadoPara ??
+          a.iniciadaEm ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final db =
+          b.agendadoPara ??
+          b.iniciadaEm ??
+          DateTime.fromMillisecondsSinceEpoch(0);
       return db.compareTo(da);
     });
 
@@ -110,7 +122,6 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
       case _FiltroStatus.emAndamento:
         return null; // busca todas e filtra
       case _FiltroStatus.todas:
-      default:
         return null;
     }
   }
@@ -124,7 +135,6 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
       case _FiltroStatus.finalizadas:
         return 'Finalizadas';
       case _FiltroStatus.todas:
-      default:
         return 'Todas';
     }
   }
@@ -154,7 +164,11 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
               _buildHeader(titulo),
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFFF85C39)))
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFF85C39),
+                        ),
+                      )
                     : RefreshIndicator(
                         onRefresh: _carregar,
                         color: const Color(0xFFF85C39),
@@ -165,15 +179,23 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
                                   Center(
                                     child: Text(
                                       'Nenhuma partida encontrada.',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
                               )
                             : ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
+                                padding: const EdgeInsets.fromLTRB(
+                                  18,
+                                  18,
+                                  18,
+                                  100,
+                                ),
                                 itemCount: _partidas.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 12),
                                 itemBuilder: (context, i) => _PartidaTile(
                                   partida: _partidas[i],
                                   onTap: () => _abrirDetalhe(_partidas[i]),
@@ -199,11 +221,7 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          )
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -216,7 +234,11 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
                   widget.campeonatoNome,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.w700, fontSize: 12),
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -225,7 +247,10 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
                       : titulo,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
             ),
@@ -246,7 +271,7 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
                   )
                   .toList();
             },
-          )
+          ),
         ],
       ),
     );
@@ -277,10 +302,7 @@ class _PartidaTile extends StatelessWidget {
   final PartidaApi partida;
   final VoidCallback onTap;
 
-  const _PartidaTile({
-    required this.partida,
-    required this.onTap,
-  });
+  const _PartidaTile({required this.partida, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +312,9 @@ class _PartidaTile extends StatelessWidget {
     final st = partida.status.toUpperCase();
 
     final dt = partida.iniciadaEm ?? partida.agendadoPara;
-    final dtStr = dt != null ? DateFormat('dd/MM • HH:mm').format(dt.toLocal()) : '';
+    final dtStr = dt != null
+        ? DateFormat('dd/MM • HH:mm').format(dt.toLocal())
+        : '';
 
     return Material(
       color: Colors.white,
@@ -310,11 +334,17 @@ class _PartidaTile extends StatelessWidget {
                       '$timeA  x  $timeB',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF85C39).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(999),
@@ -328,7 +358,7 @@ class _PartidaTile extends StatelessWidget {
                         letterSpacing: 0.8,
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -351,21 +381,29 @@ class _PartidaTile extends StatelessWidget {
                         if (dtStr.isNotEmpty)
                           Text(
                             dtStr,
-                            style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.w700, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
                           ),
                         if ((partida.local ?? '').trim().isNotEmpty)
                           Text(
                             partida.local!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                       ],
                     ),
                   ),
                   const Icon(Icons.chevron_right, color: Colors.black45),
                 ],
-              )
+              ),
             ],
           ),
         ),
