@@ -38,8 +38,19 @@ class _ModalidadesScreenState extends State<ModalidadesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          tooltip: 'Voltar',
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+              return;
+            }
+            Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          },
+        ),
         title: Text(
-          widget.campeonato.nome,
+          'Modalidades',
           style: const TextStyle(fontFamily: 'Bebas Neue', fontSize: 22),
         ),
         centerTitle: true,

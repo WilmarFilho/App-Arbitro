@@ -56,7 +56,7 @@ class PartidaListItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    partida.status == 'encerrada' ? 'FIM' : 'AGEND',
+                    partida.status == 'finalizada' ? 'FIM' : 'AGEND',
                     style: TextStyle(
                       color: _getStatusColor(partida.status),
                       fontSize: 10,

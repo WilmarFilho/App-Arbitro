@@ -54,7 +54,7 @@ class PartidaCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    partida.status == 'em_andamento' ? '● AO VIVO' : 'DESTAQUE',
+                    partida.status == '1° tempo' || partida.status == 'intervalo' || partida.status == '2° tempo' || partida.status == 'prorrogação' ? '● AO VIVO' : 'DESTAQUE',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
