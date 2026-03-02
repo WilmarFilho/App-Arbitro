@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:kyarem_eventos/models/helpers/evento_partida_model.dart';
+import 'package:kyarem_eventos/services/pdf_service.dart';
 import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/game/summary_header.dart';
 import '../../widgets/game/summary_score_card.dart';
@@ -64,8 +66,18 @@ class MatchSummaryScreen extends StatelessWidget {
                     child: SummaryEventList(eventos: eventos),
                   ),
                   SummaryActionButtons(
-                    onPdfPressed: () {
-                      // Lógica para abrir PDF futuramente
+                    onPdfPressed: () async {
+                      final List<EventoPartida> eventosTyped = eventos is List<EventoPartida>
+                          ? eventos as List<EventoPartida>
+                          : eventos.cast<EventoPartida>();
+                      await PdfService.gerarSumulaPartida(
+                        context: context,
+                        timeA: timeA,
+                        timeB: timeB,
+                        golsA: golsA,
+                        golsB: golsB,
+                        eventos: eventosTyped,
+                      );
                     },
                     onHomePressed: () {
                       // Volta para a tela inicial (home) limpando a pilha de navegação

@@ -331,6 +331,11 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       _segundos = 0; // Reset do cronômetro para a prorrogação
     });
 
+    _partidaService.atualizarPartida(
+      widget.partida.id,
+      novoStatus: 'prorrogação',
+    );
+
     _registrarEventoSistemico('PRORROGACAO');
   }
 
@@ -355,6 +360,11 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         });
       }
     });
+
+    _partidaService.atualizarPartida(
+      widget.partida.id,
+      novoStatus: 'acréscimo',
+    );
 
     _registrarEventoSistemico('ACRESCIMO');
   }
@@ -392,6 +402,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       _periodoAtual = PeriodoPartida.finalizada;
     });
 
+    _partidaService.atualizarPartida(
+      widget.partida.id,
+      novoStatus: 'finalizada',
+    );
     _registrarEventoSistemico('FIM_PARTIDA');
   }
 
@@ -800,7 +814,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       partidaId: widget.partida.id,
       equipeId: jogador.equipeId,
       tipoEventoId: tipoObjeto.id,
-      tempoFormatado:  _formatarTempo(_segundos),
+      tempoFormatado: _formatarTempo(_segundos),
       atletaId: jogador.atletaId,
     );
 
@@ -1476,7 +1490,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       _partidaService.salvarEvento(
         partidaId: widget.partida.id,
         tipoEventoId: tipoEvento.id,
-        tempoFormatado:  _formatarTempo(_segundos),
+        tempoFormatado: _formatarTempo(_segundos),
         atletaId: entrando.atletaId,
         atletaSaiId: saindo.atletaId,
         isSubstitution: true,
