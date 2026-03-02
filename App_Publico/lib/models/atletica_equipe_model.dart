@@ -32,12 +32,22 @@ class Equipe {
   final String id;
   final String nome;
   final String atleticaId;
+  final String? atleticaNome;
+  final String? campeonatoId;
+  final String? campeonatoNome;
+  final String? modalidadeId;
+  final String? modalidadeNome;
   final Atletica? atletica; // Join (Supabase)
 
   Equipe({
     required this.id,
     required this.nome,
     required this.atleticaId,
+    this.atleticaNome,
+    this.campeonatoId,
+    this.campeonatoNome,
+    this.modalidadeId,
+    this.modalidadeNome,
     this.atletica,
   });
 
@@ -48,9 +58,19 @@ class Equipe {
       nome: (map['nomeEquipe'] ?? map['nome_equipe'] ?? map['nome'] ?? '').toString(),
       // API: atleticaId | Supabase: atletica_id
       atleticaId: (map['atleticaId'] ?? map['atletica_id'] ?? '').toString(),
+      atleticaNome: map['atleticaNome']?.toString(),
+      campeonatoId: map['campeonatoId']?.toString(),
+      campeonatoNome: map['campeonatoNome']?.toString(),
+      modalidadeId: map['modalidadeId']?.toString(),
+      modalidadeNome: map['modalidadeNome']?.toString(),
       atletica: map['atleticas'] != null
           ? Atletica.fromMap(Map<String, dynamic>.from(map['atleticas']))
-          : null,
+          : (map['atleticaId'] != null || map['atleticaNome'] != null
+              ? Atletica(
+                  id: (map['atleticaId'] ?? '').toString(),
+                  nome: (map['atleticaNome'] ?? '').toString(),
+                )
+              : null),
     );
   }
 }
