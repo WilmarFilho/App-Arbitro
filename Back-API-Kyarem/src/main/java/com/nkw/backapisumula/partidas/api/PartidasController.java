@@ -5,6 +5,7 @@ import com.nkw.backapisumula.partidas.Partida;
 import com.nkw.backapisumula.partidas.service.PartidaService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -87,6 +88,19 @@ public class PartidasController {
         return PartidaResponse.from(service.end(id, userId, arbitroOnly));
     }
 
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('admin','delegado','arbitro')")
+    public PartidaResponse updateStatus(@PathVariable UUID id,
+                                        Authentication authentication,
+                                        @AuthenticationPrincipal Jwt jwt,
+                                        @Valid @RequestBody UpdateStatusRequest req) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        boolean arbitroOnly = isArbitroOnly(authentication);
+        Partida p = service.updateStatus(id, userId, arbitroOnly, req.status());
+        return PartidaResponse.from(p);
+    }
+
     private boolean isArbitroOnly(Authentication authentication) {
         boolean isAdminOrDelegado = authentication.getAuthorities().stream().anyMatch(a ->
                 a.getAuthority().equals("ROLE_admin") || a.getAuthority().equals("ROLE_delegado"));
@@ -110,6 +124,10 @@ public class PartidasController {
             String local,
             JsonNode snapshotSumula,
             String sumulaPdfUrl
+    ) {}
+
+    public record UpdateStatusRequest(
+            @NotBlank String status
     ) {}
 
     public record PartidaResponse(
