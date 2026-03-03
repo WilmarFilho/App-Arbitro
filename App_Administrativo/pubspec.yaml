@@ -28,6 +28,7 @@ dependencies:
   printing: ^5.13.2
   path_provider: ^2.1.2
   shared_preferences: ^2.5.4
+  firebase_core: ^4.5.0
 
 dev_dependencies:
   flutter_test:

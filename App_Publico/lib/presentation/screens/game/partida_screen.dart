@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/evento_service.dart';
 import '../../../services/notification_service.dart';
+import '../../../services/live_partidas_notification_watcher.dart';
+import '../../../services/firebase_messaging_service.dart';
 
 class JogoDetalhesScreen extends StatefulWidget {
   final String partidaId;
@@ -37,7 +39,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   late final Stream<List<Map<String, dynamic>>> _eventosStream;
   late final Stream<Map<String, dynamic>> _partidaStream;
   StreamSubscription<List<Map<String, dynamic>>>? _eventosSub;
-  
+
   late Future<List<Map<String, dynamic>>> _futureTipos;
   List<Map<String, dynamic>> _tiposEventosCache = [];
   bool _eventosInicialCarregado = false;
@@ -62,14 +64,22 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         .eq('partida_id', widget.partidaId)
         .order('criado_em', ascending: false);
 
-    // 2.1 Notificações locais para novos eventos (após o primeiro carregamento)
-    _eventosSub = _eventosStream.listen(_handleEventosParaNotificacao);
+    // 2.1 Notificações locais para novos eventos:
+    // se o watcher global estiver rodando, ele já notifica (evita duplicidade).
+    if (!LivePartidasNotificationWatcher.instance.isRunning) {
+      _eventosSub = _eventosStream.listen(_handleEventosParaNotificacao);
+    }
 
     // 3. Cache dos tipos de eventos
-    _futureTipos = _eventoService.buscarTiposPorPartida(widget.modalidadeId).then((tipos) {
-      if (mounted) setState(() => _tiposEventosCache = tipos);
-      return tipos;
-    });
+    _futureTipos = _eventoService
+        .buscarTiposPorPartida(widget.modalidadeId)
+        .then((tipos) {
+          if (mounted) setState(() => _tiposEventosCache = tipos);
+          return tipos;
+        });
+
+    // 4. Se inscrever no tópico dessa partida para receber push notifications
+    FirebaseMessagingService().subscribeToPartidaTopic(widget.partidaId);
   }
 
   @override
@@ -78,7 +88,9 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     super.dispose();
   }
 
-  Future<void> _handleEventosParaNotificacao(List<Map<String, dynamic>> eventos) async {
+  Future<void> _handleEventosParaNotificacao(
+    List<Map<String, dynamic>> eventos,
+  ) async {
     // Só notifica se o usuário estiver logado
     if (supabase.auth.currentSession == null) return;
 
@@ -112,7 +124,9 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
 
       final title = '${widget.timeA} x ${widget.timeB}';
-      final body = descricao.isNotEmpty ? '$nomeEvento: $descricao' : nomeEvento;
+      final body = descricao.isNotEmpty
+          ? '$nomeEvento: $descricao'
+          : nomeEvento;
 
       // ID numérico estável (limita para int)
       final notifId = idStr.hashCode & 0x7fffffff;
@@ -130,8 +144,10 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text("DETALHES DO JOGO", 
-          style: TextStyle(fontFamily: 'Bebas Neue', fontSize: 24)),
+        title: const Text(
+          "DETALHES DO JOGO",
+          style: TextStyle(fontFamily: 'Bebas Neue', fontSize: 24),
+        ),
         centerTitle: true,
         backgroundColor: const Color(0xFFF85C39),
         foregroundColor: Colors.white,
@@ -162,7 +178,11 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                 future: _futureTipos,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Color(0xFFF85C39)));
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFF85C39),
+                      ),
+                    );
                   }
                   return _buildTimelineStream();
                 },
@@ -176,7 +196,11 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
 
   // --- WIDGETS DE INTERFACE ---
 
-  Widget _buildScoreHeader({required String placarA, required String placarB, required String status}) {
+  Widget _buildScoreHeader({
+    required String placarA,
+    required String placarB,
+    required String status,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
       decoration: const BoxDecoration(color: Color(0xFFF85C39)),
@@ -188,17 +212,28 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
             children: [
               Text(
                 "$placarA - $placarB",
-                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
+                style: const TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black26,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   status.toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -215,33 +250,49 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         CircleAvatar(
           radius: 35,
           backgroundColor: Colors.white.withOpacity(0.2),
-          child: Text(nome.isNotEmpty ? nome[0] : "?", 
-            style: const TextStyle(fontSize: 32, color: Colors.white, fontWeight: FontWeight.bold)),
+          child: Text(
+            nome.isNotEmpty ? nome[0] : "?",
+            style: const TextStyle(
+              fontSize: 32,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         const SizedBox(height: 10),
         SizedBox(
           width: 80,
-          child: Text(nome, 
+          child: Text(
+            nome,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     );
   }
 
- // ... (mantenha o restante do código igual até o _buildTimelineStream)
+  // ... (mantenha o restante do código igual até o _buildTimelineStream)
 
   Widget _buildTimelineStream() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _eventosStream,
       builder: (context, snapshot) {
-        if (snapshot.hasError) return const Center(child: Text("Erro ao carregar lances"));
-        
+        if (snapshot.hasError)
+          return const Center(child: Text("Erro ao carregar lances"));
+
         final eventos = snapshot.data ?? [];
         if (eventos.isEmpty) {
-          return const Center(child: Text("Aguardando lances da partida...", 
-            style: TextStyle(color: Colors.grey, fontSize: 16)));
+          return const Center(
+            child: Text(
+              "Aguardando lances da partida...",
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          );
         }
 
         return Column(
@@ -249,8 +300,14 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(25, 25, 25, 10),
-              child: Text("LINHA DO TEMPO AO VIVO",
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+              child: Text(
+                "LINHA DO TEMPO AO VIVO",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ),
             Expanded(
               child: ListView.builder(
@@ -258,9 +315,9 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                 itemCount: eventos.length,
                 // Adicionamos uma chave baseada no ID para o Flutter rastrear mudanças
                 itemBuilder: (context, index) => _buildAnimatedTimelineItem(
-                  eventos[index], 
-                  index, 
-                  eventos.length
+                  eventos[index],
+                  index,
+                  eventos.length,
                 ),
               ),
             ),
@@ -271,7 +328,11 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   }
 
   // Novo método para encapsular a animação de entrada
-  Widget _buildAnimatedTimelineItem(Map<String, dynamic> ev, int index, int total) {
+  Widget _buildAnimatedTimelineItem(
+    Map<String, dynamic> ev,
+    int index,
+    int total,
+  ) {
     return TweenAnimationBuilder<double>(
       // Sempre que um item novo for renderizado, ele vai de 0.0 a 1.0
       duration: const Duration(milliseconds: 600),
@@ -301,27 +362,44 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     IconData iconData = Icons.info_outline;
     Color iconColor = Colors.grey;
 
-    if (nomeEvento.contains('GOL')) { 
-      iconData = Icons.sports_soccer; 
-      iconColor = Colors.green; 
+    if (nomeEvento.contains('GOL')) {
+      iconData = Icons.sports_soccer;
+      iconColor = Colors.green;
+    } else if (nomeEvento.contains('AMARELO')) {
+      iconData = Icons.style;
+      iconColor = Colors.amber;
+    } else if (nomeEvento.contains('VERMELHO')) {
+      iconData = Icons.style;
+      iconColor = Colors.red;
+    } else if (nomeEvento.contains('SUBSTITUICAO')) {
+      iconData = Icons.swap_horiz;
+      iconColor = Colors.blue;
     }
-    else if (nomeEvento.contains('AMARELO')) { iconData = Icons.style; iconColor = Colors.amber; }
-    else if (nomeEvento.contains('VERMELHO')) { iconData = Icons.style; iconColor = Colors.red; }
-    else if (nomeEvento.contains('SUBSTITUICAO')) { iconData = Icons.swap_horiz; iconColor = Colors.blue; }
 
     return IntrinsicHeight(
       child: Row(
         children: [
           Column(
             children: [
-              Container(width: 2, height: 20, color: index == 0 ? Colors.transparent : Colors.grey[300]),
+              Container(
+                width: 2,
+                height: 20,
+                color: index == 0 ? Colors.transparent : Colors.grey[300],
+              ),
               // Pequena animação de escala no ícone
               AnimatedScale(
                 duration: const Duration(milliseconds: 800),
                 scale: 1.0,
                 child: Icon(iconData, size: 22, color: iconColor),
               ),
-              Expanded(child: Container(width: 2, color: index == total - 1 ? Colors.transparent : Colors.grey[300])),
+              Expanded(
+                child: Container(
+                  width: 2,
+                  color: index == total - 1
+                      ? Colors.transparent
+                      : Colors.grey[300],
+                ),
+              ),
             ],
           ),
           const SizedBox(width: 20),
@@ -339,21 +417,38 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                     color: iconColor.withOpacity(0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
-                  )
+                  ),
                 ],
               ),
               child: Row(
                 children: [
-                  Text("${ev['tempo_cronometro'] ?? "00'00"}", 
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFF85C39))),
+                  Text(
+                    "${ev['tempo_cronometro'] ?? "00'00"}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFF85C39),
+                    ),
+                  ),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(nomeEvento, style: TextStyle(fontSize: 10, color: iconColor, fontWeight: FontWeight.bold)),
-                        Text(ev['descricao_detalhada'] ?? "", 
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                        Text(
+                          nomeEvento,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: iconColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          ev['descricao_detalhada'] ?? "",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),

@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "969066450645",
+    "project_id": "kyarem-b31de",
+    "storage_bucket": "kyarem-b31de.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:969066450645:android:7a4d0f0334bdfbd81f5c5c",
+        "android_client_info": {
+          "package_name": "com.example.app_arbitro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAPgSfSRIwYGQHGqiCVXt8wvMTvW-nB6g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:969066450645:android:d61a8754bfe19af01f5c5c",
+        "android_client_info": {
+          "package_name": "com.example.app_publico"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAPgSfSRIwYGQHGqiCVXt8wvMTvW-nB6g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
