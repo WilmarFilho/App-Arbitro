@@ -39,6 +39,12 @@ public class EventoPartidaService {
             String descricaoDetalhada
     ) {}
 
+    public record AddEventoGeralInput(
+            UUID tipoEventoId,
+            String tempoCronometro,
+            String descricaoDetalhada
+    ) {}
+
     private final EventoPartidaRepository repo;
     private final PartidaRepository partidaRepo;
     private final PartidaArbitroRepository partidaArbitroRepo;
@@ -68,6 +74,91 @@ public class EventoPartidaService {
 
     public List<EventoPartida> list(UUID partidaId) {
         return repo.findByPartida_IdOrderByCriadoEmAsc(partidaId);
+    }
+
+    /**
+     * Cria eventos gerais da partida (sem equipe/atleta), em lote.
+     *
+     * A operação é transacional: se 1 evento falhar, nada é persistido.
+     */
+    @Transactional
+    public List<EventoPartida> addBatchGerais(UUID partidaId,
+                                              UUID userId,
+                                              boolean isArbitroOnly,
+                                              List<AddEventoGeralInput> reqs) {
+
+        if (reqs == null || reqs.isEmpty()) {
+            throw new IllegalStateException("Lista de eventos não pode ser vazia.");
+        }
+
+        Partida partida = partidaRepo.findById(partidaId)
+                .orElseThrow(() -> new IllegalStateException("Partida não encontrada."));
+
+        if (!PartidaService.isStatusEmAndamento(partida.getStatus())) {
+            throw new IllegalStateException("Só é possível registrar eventos quando a partida estiver em andamento.");
+        }
+
+        if (isArbitroOnly && !partidaArbitroRepo.existsByPartida_IdAndArbitro_Id(partidaId, userId)) {
+            throw new IllegalStateException("Árbitro não está atribuído a esta partida.");
+        }
+
+        Modalidade modalidade = partida.getModalidade();
+        if (modalidade == null || modalidade.getEsporte() == null) {
+            throw new IllegalStateException("Modalidade da partida sem esporte vinculado.");
+        }
+        UUID esporteIdDaPartida = modalidade.getEsporte().getId();
+
+        // Carrega tipos em lote
+        Set<UUID> tipoEventoIds = new HashSet<>();
+        for (AddEventoGeralInput r : reqs) {
+            if (r == null) continue;
+            if (r.tipoEventoId() != null) tipoEventoIds.add(r.tipoEventoId());
+        }
+
+        Map<UUID, TipoEvento> tipos = new HashMap<>();
+        for (TipoEvento te : tipoEventoRepo.findAllById(tipoEventoIds)) {
+            tipos.put(te.getId(), te);
+        }
+
+        List<EventoPartida> toSave = new ArrayList<>(reqs.size());
+        for (AddEventoGeralInput r : reqs) {
+            if (r == null) {
+                throw new IllegalStateException("Evento inválido (null) na lista.");
+            }
+            if (r.tipoEventoId() == null) {
+                throw new IllegalStateException("tipoEventoId é obrigatório.");
+            }
+            if (r.tempoCronometro() == null || r.tempoCronometro().isBlank()) {
+                throw new IllegalStateException("tempoCronometro é obrigatório.");
+            }
+
+            TipoEvento tipoEvento = tipos.get(r.tipoEventoId());
+            if (tipoEvento == null) {
+                throw new IllegalStateException("Tipo de evento não encontrado: " + r.tipoEventoId());
+            }
+            if (tipoEvento.getEsporte() == null || tipoEvento.getEsporte().getId() == null) {
+                throw new IllegalStateException("Tipo de evento sem esporte vinculado.");
+            }
+            if (!Objects.equals(esporteIdDaPartida, tipoEvento.getEsporte().getId())) {
+                throw new IllegalStateException("Tipo de evento não pertence ao esporte da modalidade da partida.");
+            }
+
+            // Se for gol, precisa de equipe para atualizar placar -> use /eventos
+            if (tipoEvento.getNome() != null && tipoEvento.getNome().trim().equalsIgnoreCase("gol")) {
+                throw new IllegalStateException("Evento 'gol' requer equipeId (use /api/v1/partidas/{partidaId}/eventos). ");
+            }
+
+            EventoPartida ev = new EventoPartida();
+            ev.setPartida(partida);
+            ev.setTipoEvento(tipoEvento);
+            ev.setTempoCronometro(r.tempoCronometro());
+            ev.setDescricaoDetalhada(r.descricaoDetalhada());
+            ev.setIsSubstitution(false);
+
+            toSave.add(ev);
+        }
+
+        return repo.saveAll(toSave);
     }
 
     /**
