@@ -242,6 +242,56 @@ public class PartidaService {
         return repo.save(p);
     }
 
+    public Partida updateStatus(UUID partidaId, UUID userId, boolean isArbitroOnly, String status) {
+        Partida p = getOrThrow(partidaId);
+
+        // Se for árbitro (sem ser admin/delegado), só pode alterar se estiver atribuído à partida
+        if (isArbitroOnly && !partidaArbitroRepo.existsByPartida_IdAndArbitro_Id(partidaId, userId)) {
+            throw new IllegalStateException("Árbitro não está atribuído a esta partida.");
+        }
+
+        // Evita reabrir partidas finalizadas via este endpoint
+        if (isStatusFinalizada(p.getStatus())) {
+            throw new IllegalStateException("Partida já finalizada.");
+        }
+
+        String normalized = normalizeStatusForDb(status);
+        validateStatus(normalized);
+
+        p.setStatus(normalized);
+
+        // Se saiu de agendada, marca iniciadaEm caso ainda não exista
+        if (!STATUS_AGENDADA.equalsIgnoreCase(normalized) && p.getIniciadaEm() == null) {
+            p.setIniciadaEm(OffsetDateTime.now());
+        }
+
+        // Se marcou como finalizada por aqui, preenche encerradaEm (não gera snapshot automaticamente)
+        if (STATUS_FINALIZADA.equalsIgnoreCase(normalized) && p.getEncerradaEm() == null) {
+            p.setEncerradaEm(OffsetDateTime.now());
+        }
+
+        return repo.save(p);
+    }
+
+    private String normalizeStatusForDb(String raw) {
+        if (raw == null) return null;
+
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+
+        // Normaliza símbolo ordinal para o mesmo usado no banco (°)
+        s = s.replace('º', '°');
+
+        // Aceita variações sem acento
+        if (s.equals("prorrogacao")) return STATUS_PRORROGACAO;
+
+        // Aceita variações comuns
+        if (s.equals("1o tempo") || s.equals("1°tempo") || s.equals("1 tempo") || s.equals("primeiro tempo")) return STATUS_PRIMEIRO_TEMPO;
+        if (s.equals("2o tempo") || s.equals("2°tempo") || s.equals("2 tempo") || s.equals("segundo tempo")) return STATUS_SEGUNDO_TEMPO;
+
+        return s;
+    }
+
+
     /**
      * Monta um JSON estável (ordenado) com os dados necessários para a súmula.
      * Pode evoluir com o tempo (ex.: adicionar estatísticas, assinaturas etc.).
