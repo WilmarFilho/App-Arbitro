@@ -13,6 +13,7 @@ import com.nkw.backapisumula.partidas.Partida;
 import com.nkw.backapisumula.partidas.repo.EventoPartidaRepository;
 import com.nkw.backapisumula.partidas.repo.PartidaArbitroRepository;
 import com.nkw.backapisumula.partidas.repo.PartidaRepository;
+import com.nkw.backapisumula.config.FirebaseCloudMessagingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +52,7 @@ public class EventoPartidaService {
     private final AtletaRepository atletaRepo;
     private final TipoEventoRepository tipoEventoRepo;
     private final EquipeAtletaInscritoRepository inscritoRepo;
+    private final FirebaseCloudMessagingService firebaseMessagingService;
 
     public EventoPartidaService(EventoPartidaRepository repo,
                                PartidaRepository partidaRepo,
@@ -58,7 +60,8 @@ public class EventoPartidaService {
                                EquipeRepository equipeRepo,
                                AtletaRepository atletaRepo,
                                TipoEventoRepository tipoEventoRepo,
-                               EquipeAtletaInscritoRepository inscritoRepo) {
+                               EquipeAtletaInscritoRepository inscritoRepo,
+                               FirebaseCloudMessagingService firebaseMessagingService) {
         this.repo = repo;
         this.partidaRepo = partidaRepo;
         this.partidaArbitroRepo = partidaArbitroRepo;
@@ -66,6 +69,7 @@ public class EventoPartidaService {
         this.atletaRepo = atletaRepo;
         this.tipoEventoRepo = tipoEventoRepo;
         this.inscritoRepo = inscritoRepo;
+        this.firebaseMessagingService = firebaseMessagingService;
     }
 
     public List<EventoPartida> list(UUID partidaId) {
@@ -159,8 +163,8 @@ public class EventoPartidaService {
         // Send push notifications
         for (EventoPartida ev : saved) {
             String topic = "partida_" + partidaId.toString();
-            String title = (partida.getEquipeA() != null ? partida.getEquipeA().getNome() : "Equipe A") + " x " + 
-                           (partida.getEquipeB() != null ? partida.getEquipeB().getNome() : "Equipe B");
+            String title = (partida.getEquipeA() != null ? partida.getEquipeA().getNomeEquipe() : "Equipe A") + " x " + 
+                           (partida.getEquipeB() != null ? partida.getEquipeB().getNomeEquipe() : "Equipe B");
             String body = ev.getTipoEvento().getNome();
             if (ev.getDescricaoDetalhada() != null && !ev.getDescricaoDetalhada().isBlank()) {
                 body += ": " + ev.getDescricaoDetalhada();
@@ -366,6 +370,18 @@ public class EventoPartidaService {
             partidaRepo.save(partida);
         }
 
+        // Send push notifications
+        for (EventoPartida ev : saved) {
+            String topic = "partida_" + partidaId.toString();
+            String title = (partida.getEquipeA() != null ? partida.getEquipeA().getNomeEquipe() : "Equipe A") + " x " + 
+                           (partida.getEquipeB() != null ? partida.getEquipeB().getNomeEquipe() : "Equipe B");
+            String body = ev.getTipoEvento().getNome();
+            if (ev.getDescricaoDetalhada() != null && !ev.getDescricaoDetalhada().isBlank()) {
+                body += ": " + ev.getDescricaoDetalhada();
+            }
+            firebaseMessagingService.sendNotificationToTopic(topic, title, body);
+        }
+
         return saved;
     }
 
@@ -466,6 +482,16 @@ public class EventoPartidaService {
             }
             partidaRepo.save(partida);
         }
+
+        // Send push notification
+        String topic = "partida_" + partidaId.toString();
+        String title = (partida.getEquipeA() != null ? partida.getEquipeA().getNomeEquipe() : "Equipe A") + " x " + 
+                       (partida.getEquipeB() != null ? partida.getEquipeB().getNomeEquipe() : "Equipe B");
+        String body = tipoEvento.getNome();
+        if (descricaoDetalhada != null && !descricaoDetalhada.isBlank()) {
+            body += ": " + descricaoDetalhada;
+        }
+        firebaseMessagingService.sendNotificationToTopic(topic, title, body);
 
         return saved;
     }
