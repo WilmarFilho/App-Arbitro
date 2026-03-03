@@ -65,4 +65,36 @@ class Partida {
           : null,
     );
   }
+
+  Partida copyWith({
+    String? id,
+    String? modalidadeId,
+    String? status,
+    int? placarA,
+    int? placarB,
+    String? equipeAId,
+    String? equipeBId,
+    String? local,
+    DateTime? iniciadaEm,
+    DateTime? encerradaEm,
+    DateTime? agendadaPara,
+    Equipe? equipeA,
+    Equipe? equipeB,
+  }) {
+    return Partida(
+      id: id ?? this.id,
+      modalidadeId: modalidadeId ?? this.modalidadeId,
+      status: status ?? this.status,
+      placarA: placarA ?? this.placarA,
+      placarB: placarB ?? this.placarB,
+      equipeAId: equipeAId ?? this.equipeAId,
+      equipeBId: equipeBId ?? this.equipeBId,
+      local: local ?? this.local,
+      iniciadaEm: iniciadaEm ?? this.iniciadaEm,
+      encerradaEm: encerradaEm ?? this.encerradaEm,
+      agendadaPara: agendadaPara ?? this.agendadaPara,
+      equipeA: equipeA ?? this.equipeA,
+      equipeB: equipeB ?? this.equipeB,
+    );
+  }
 }

@@ -6,7 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-import '../models/partida_model.dart';
+import 'package:kyarem_eventos/models/partida_model.dart';
+import 'package:kyarem_eventos/models/atletica_equipe_model.dart';
 import '../models/arbitro_model.dart';
 import '../models/campeonato_model.dart';
 import '../models/tipo_evento_model.dart';
@@ -23,6 +24,8 @@ class PartidaService {
   Database? _db;
   Timer? _syncTimer;
   bool _isSyncing = false;
+
+  final Map<String, Equipe> _equipesCache = {};
 
   PartidaService() {
     _initInterceptors();
@@ -141,9 +144,23 @@ class PartidaService {
     int rowId,
   ) async {
     try {
-      debugPrint(
-        "=== EVENTO SEM ATLETA: /partidas/$partidaId/evento-geral ===",
+      debugPrint("=== EVENTO SEM ATLETA: /partidas/$partidaId/eventos ===");
+      debugPrint(jsonEncode([dado]));
+
+      // O endpoint /eventos espera uma LISTA de eventos, mesmo para 1 item.
+      final response = await _dio.post(
+        '/partidas/$partidaId/eventos-gerais',
+        data: [dado],
       );
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          _db != null) {
+        await _db!.delete(
+          'fila_eventos',
+          where: 'id = ?',
+          whereArgs: [rowId],
+        );
+      }
     } catch (e) {
       debugPrint("Erro evento individual: $e");
     }
@@ -207,11 +224,77 @@ class PartidaService {
 
   // --- MÉTODOS DE BUSCA (COM RETURNS GARANTIDOS) ---
 
+  Future<Equipe?> buscarEquipePorId(String equipeId) async {
+    final id = equipeId.trim();
+    if (id.isEmpty) return null;
+
+    final cached = _equipesCache[id];
+    if (cached != null) return cached;
+
+    try {
+      final response = await _dio.get('/equipes/$id');
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        final equipe = Equipe.fromMap(response.data as Map<String, dynamic>);
+        _equipesCache[id] = equipe;
+        return equipe;
+      }
+    } catch (e) {
+      debugPrint('Erro buscarEquipePorId($id): $e');
+    }
+    return null;
+  }
+
+  Future<void> _precarregarEquipes(Iterable<String> ids) async {
+    final uniques = <String>{};
+    for (final raw in ids) {
+      final id = raw.trim();
+      if (id.isEmpty) continue;
+      if (_equipesCache.containsKey(id)) continue;
+      uniques.add(id);
+    }
+
+    if (uniques.isEmpty) return;
+
+    await Future.wait(uniques.map(buscarEquipePorId));
+  }
+
+  Future<List<Partida>> _enriquecerPartidasComEquipes(List<Partida> partidas) async {
+    final ids = <String>[];
+    for (final p in partidas) {
+      ids.add(p.equipeAId);
+      ids.add(p.equipeBId);
+    }
+
+    await _precarregarEquipes(ids);
+
+    return partidas
+        .map(
+          (p) => p.copyWith(
+            equipeA: p.equipeA ?? _equipesCache[p.equipeAId],
+            equipeB: p.equipeB ?? _equipesCache[p.equipeBId],
+          ),
+        )
+        .toList();
+  }
+
+  Future<Partida> carregarEquipesDaPartida(Partida partida) async {
+    if (partida.equipeA != null && partida.equipeB != null) return partida;
+
+    await _precarregarEquipes([partida.equipeAId, partida.equipeBId]);
+
+    return partida.copyWith(
+      equipeA: partida.equipeA ?? _equipesCache[partida.equipeAId],
+      equipeB: partida.equipeB ?? _equipesCache[partida.equipeBId],
+    );
+  }
+
   Future<List<Partida>> listarTodasPartidas() async {
     try {
       final response = await _dio.get('/partidas');
       if (response.statusCode == 200) {
-        return (response.data as List).map((m) => Partida.fromMap(m)).toList();
+        final partidas =
+            (response.data as List).map((m) => Partida.fromMap(m)).toList();
+        return await _enriquecerPartidasComEquipes(partidas);
       }
     } catch (e) {
       debugPrint("Erro listarTodasPartidas: $e");
@@ -223,7 +306,9 @@ class PartidaService {
     try {
       final response = await _dio.get('/partidas/minhas');
       if (response.statusCode == 200) {
-        return (response.data as List).map((m) => Partida.fromMap(m)).toList();
+        final partidas =
+            (response.data as List).map((m) => Partida.fromMap(m)).toList();
+        return await _enriquecerPartidasComEquipes(partidas);
       }
     } catch (e) {
       debugPrint("Erro listarPartidasMinhas: $e");
@@ -307,20 +392,17 @@ class PartidaService {
   Future<void> atualizarPartida(
     String partidaId, {
     String? novoStatus,
-    int? golsA,
-    int? golsB,
   }) async {
-    final Map<String, dynamic> dados = {};
-    if (novoStatus != null) dados['status'] = novoStatus;
-    if (golsA != null) dados['placar_a'] = golsA;
-    if (golsB != null) dados['placar_b'] = golsB;
+    final status = novoStatus?.trim();
+    if (status == null || status.isEmpty) return;
 
-    if (dados.isNotEmpty) {
-      try {
-        await _supabase.from('partidas').update(dados).eq('id', partidaId);
-      } catch (e) {
-        debugPrint("Erro atualizarPartida: $e");
-      }
+    try {
+      await _dio.patch(
+        '/partidas/$partidaId/status',
+        data: {"status": status},
+      );
+    } catch (e) {
+      debugPrint("Erro atualizar status da partida: $e");
     }
   }
 

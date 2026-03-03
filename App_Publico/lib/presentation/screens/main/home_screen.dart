@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../models/partida_model.dart';
+import 'package:kyarem_eventos_publico/models/partida_model.dart';
 import '../../../services/partida_service.dart';
 import '../game/partida_screen.dart'; // Certifique-se que aponta para JogoDetalhesScreen
 

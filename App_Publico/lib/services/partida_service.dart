@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/partida_model.dart';
+import 'package:kyarem_eventos_publico/models/partida_model.dart';
 
 class PartidaService {
   final _supabase = Supabase.instance.client;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Para formatar a data
-import '../../../models/partida_model.dart';
+import 'package:kyarem_eventos_publico/models/partida_model.dart';
 
 class PartidaListItem extends StatelessWidget {
   final Partida partida;

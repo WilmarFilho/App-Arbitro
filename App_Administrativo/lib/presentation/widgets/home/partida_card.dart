@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/partida_model.dart';
+import 'package:kyarem_eventos/models/partida_model.dart';
 
 class PartidaCard extends StatelessWidget {
   final Partida partida;

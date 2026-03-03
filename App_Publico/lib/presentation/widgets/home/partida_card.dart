@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/partida_model.dart';
+import 'package:kyarem_eventos_publico/models/partida_model.dart';
 
 class PartidaCard extends StatelessWidget {
   final Partida partida; // Agora é obrigatório para exibir os dados reais

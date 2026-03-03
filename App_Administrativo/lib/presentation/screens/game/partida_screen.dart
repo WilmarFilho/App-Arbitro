@@ -42,6 +42,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   late int _golsB;
   bool _carregandoDados = true;
 
+  String _nomeTimeA = "Time A";
+  String _nomeTimeB = "Time B";
+
   List<Atleta> _jogadoresA = [];
   List<Atleta> _jogadoresB = [];
   List<Atleta> _reservasA = [];
@@ -75,6 +78,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     super.initState();
     _golsA = widget.partida.placarA;
     _golsB = widget.partida.placarB;
+    _nomeTimeA = widget.partida.equipeA?.nome ?? "Time A";
+    _nomeTimeB = widget.partida.equipeB?.nome ?? "Time B";
     _periodoAtual = _converterStatusParaPeriodo(widget.partida.status);
     if (_periodoAtual != PeriodoPartida.naoIniciada) _partidaJaIniciou = true;
     _carregarDadosIniciais();
@@ -85,12 +90,31 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
     try {
       // Executa as duas buscas em paralelo
-      await Future.wait([_buscarConfiguracoesDeEventos(), _carregarAtletas()]);
+      await Future.wait([
+        _buscarConfiguracoesDeEventos(),
+        _carregarAtletas(),
+        _carregarNomesEquipes(),
+      ]);
     } catch (e) {
       debugPrint("Erro no carregamento inicial: $e");
     } finally {
       // Só desativa o loader quando as duas promessas acima forem resolvidas
       setState(() => _carregandoDados = false);
+    }
+  }
+
+  Future<void> _carregarNomesEquipes() async {
+    try {
+      final enriched = await _partidaService.carregarEquipesDaPartida(
+        widget.partida,
+      );
+      if (!mounted) return;
+      setState(() {
+        _nomeTimeA = enriched.equipeA?.nome ?? _nomeTimeA;
+        _nomeTimeB = enriched.equipeB?.nome ?? _nomeTimeB;
+      });
+    } catch (e) {
+      debugPrint("Erro ao carregar nomes das equipes: $e");
     }
   }
 
@@ -573,8 +597,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   // Inicia pausa técnica para um time
   void _iniciarPausaTecnica(bool isTimeA) {
     // 1. Pegar nomes corretos das equipes de dentro do objeto partida
-    final nomeTimeA = widget.partida.equipeA?.nome ?? "Time A";
-    final nomeTimeB = widget.partida.equipeB?.nome ?? "Time B";
+    final nomeTimeA = _nomeTimeA;
+    final nomeTimeB = _nomeTimeB;
 
     // Verificações de segurança
     if (_emPausaTecnica) {
@@ -1065,8 +1089,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
                         // Placar
                         GameScoreboard(
-                          timeA: widget.partida.equipeA?.nome ?? "Time A",
-                          timeB: widget.partida.equipeB?.nome ?? "Time B",
+                          timeA: _nomeTimeA,
+                          timeB: _nomeTimeB,
                           golsA: _golsA,
                           golsB: _golsB,
                           periodoAtual: _periodoAtual,
@@ -1142,12 +1166,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => MatchSummaryScreen(
-                                      timeA:
-                                          widget.partida.equipeA?.nome ??
-                                          "Time A",
-                                      timeB:
-                                          widget.partida.equipeB?.nome ??
-                                          "Time B",
+                                      timeA: _nomeTimeA,
+                                      timeB: _nomeTimeB,
                                       golsA: _golsA,
                                       golsB: _golsB,
                                       eventos: _eventosPartida,
@@ -1279,8 +1299,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                       Text(
                         // Acessando o nome da equipe corretamente através do modelo da partida
                         isTimeA
-                            ? (widget.partida.equipeA?.nome ?? "Time A")
-                            : (widget.partida.equipeB?.nome ?? "Time B"),
+                            ? _nomeTimeA
+                            : _nomeTimeB,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
