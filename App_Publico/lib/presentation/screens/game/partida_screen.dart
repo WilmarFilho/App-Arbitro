@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/evento_service.dart';
+import '../../../services/notification_service.dart';
 
 class JogoDetalhesScreen extends StatefulWidget {
   final String partidaId;
@@ -33,9 +36,12 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   // Streams para Realtime
   late final Stream<List<Map<String, dynamic>>> _eventosStream;
   late final Stream<Map<String, dynamic>> _partidaStream;
+  StreamSubscription<List<Map<String, dynamic>>>? _eventosSub;
   
   late Future<List<Map<String, dynamic>>> _futureTipos;
   List<Map<String, dynamic>> _tiposEventosCache = [];
+  bool _eventosInicialCarregado = false;
+  final Set<String> _eventosJaNotificados = {};
 
   @override
   void initState() {
@@ -56,11 +62,67 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         .eq('partida_id', widget.partidaId)
         .order('criado_em', ascending: false);
 
+    // 2.1 Notificações locais para novos eventos (após o primeiro carregamento)
+    _eventosSub = _eventosStream.listen(_handleEventosParaNotificacao);
+
     // 3. Cache dos tipos de eventos
     _futureTipos = _eventoService.buscarTiposPorPartida(widget.modalidadeId).then((tipos) {
       if (mounted) setState(() => _tiposEventosCache = tipos);
       return tipos;
     });
+  }
+
+  @override
+  void dispose() {
+    _eventosSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _handleEventosParaNotificacao(List<Map<String, dynamic>> eventos) async {
+    // Só notifica se o usuário estiver logado
+    if (supabase.auth.currentSession == null) return;
+
+    // Primeira emissão do stream normalmente vem com o histórico — não notificar.
+    if (!_eventosInicialCarregado) {
+      for (final ev in eventos) {
+        final id = ev['id']?.toString();
+        if (id != null) _eventosJaNotificados.add(id);
+      }
+      _eventosInicialCarregado = true;
+      return;
+    }
+
+    if (eventos.isEmpty) return;
+
+    // Como está ordenado desc, os mais novos vêm primeiro.
+    // Notifica qualquer evento novo que ainda não foi visto/notificado.
+    for (final ev in eventos) {
+      final idStr = ev['id']?.toString();
+      if (idStr == null) continue;
+      if (_eventosJaNotificados.contains(idStr)) continue;
+
+      _eventosJaNotificados.add(idStr);
+
+      final tipoData = _tiposEventosCache.firstWhere(
+        (t) => t['id'] == ev['tipo_evento_id'],
+        orElse: () => {'nome': 'Evento'},
+      );
+
+      final nomeEvento = (tipoData['nome']?.toString() ?? 'Evento').trim();
+      final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
+
+      final title = '${widget.timeA} x ${widget.timeB}';
+      final body = descricao.isNotEmpty ? '$nomeEvento: $descricao' : nomeEvento;
+
+      // ID numérico estável (limita para int)
+      final notifId = idStr.hashCode & 0x7fffffff;
+
+      await NotificationService.instance.showPartidaEvento(
+        id: notifId,
+        title: title,
+        body: body,
+      );
+    }
   }
 
   @override

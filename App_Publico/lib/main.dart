@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'services/notification_service.dart';
+
 // Imports das suas telas
 import 'models/campeonato_model.dart';
 import 'presentation/screens/main/home_screen.dart';
@@ -31,14 +33,17 @@ Future<void> main() async {
   // 4. Inicializa a localização para datas (pt_BR)
   await initializeDateFormatting('pt_BR', null);
 
-  // 5. Escuta mudanças de autenticação (Recuperação de senha)
+  // 5. Inicializa notificações locais
+  await NotificationService.instance.init();
+
+  // 6. Escuta mudanças de autenticação (Recuperação de senha)
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
       navigatorKey.currentState?.pushNamedAndRemoveUntil('/reset-password', (route) => false);
     }
   });
 
-  // 6. Roda o app apenas UMA vez
+  // 7. Roda o app apenas UMA vez
   runApp(const MyApp());
 }
 
