@@ -16,32 +16,46 @@ public class FirebaseCloudMessagingService {
 
     @PostConstruct
     public void initialize() {
+        System.out.println("========== FIREBASE INITIALIZATION START ==========");
         try {
             if (FirebaseApp.getApps().isEmpty()) {
+                System.out.println("No Firebase apps exist yet. Attempting to initialize one.");
+                
                 // Tenta carregar o arquivo a partir da pasta resources
+                System.out.println("Looking for 'firebase-service-account.json' in classpath...");
                 InputStream serviceAccount = getClass().getClassLoader().getResourceAsStream("firebase-service-account.json");
                 
                 FirebaseOptions options;
                 if (serviceAccount != null) {
+                    System.out.println("SUCCESS: Found 'firebase-service-account.json' in classpath. Initializing with this file.");
                     options = FirebaseOptions.builder()
                             .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                             .build();
-                    System.out.println("FirebaseApp init: Using 'firebase-service-account.json' from classpath.");
                 } else {
                     // Tenta usar a variável GOOGLE_APPLICATION_CREDENTIALS
+                    System.out.println("WARNING: 'firebase-service-account.json' NOT FOUND in classpath.");
+                    System.out.println("Attempting to use GOOGLE_APPLICATION_CREDENTIALS environment variable...");
+                    String envVar = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
+                    System.out.println("GOOGLE_APPLICATION_CREDENTIALS is set to: " + (envVar != null ? envVar : "null"));
+                    
                     options = FirebaseOptions.builder()
                             .setCredentials(GoogleCredentials.getApplicationDefault())
                             .build();
-                    System.out.println("FirebaseApp init: Using GOOGLE_APPLICATION_CREDENTIALS default.");
+                    System.out.println("SUCCESS: Loaded default application credentials.");
                 }
                 
+                System.out.println("Calling FirebaseApp.initializeApp(options)...");
                 FirebaseApp.initializeApp(options);
-                System.out.println("FirebaseApp initialized successfully");
+                System.out.println("FirebaseApp initialized successfully!");
+            } else {
+                System.out.println("Firebase apps already initialized. Names: ");
+                FirebaseApp.getApps().forEach(app -> System.out.println("- " + app.getName()));
             }
         } catch (Exception e) {
-            System.err.println("Failed to initialize Firebase: " + e.getMessage());
+            System.err.println("CRITICAL ERROR: Failed to initialize Firebase: " + e.getMessage());
             e.printStackTrace();
         }
+        System.out.println("========== FIREBASE INITIALIZATION END ==========");
     }
 
     public void sendNotificationToTopic(String topic, String title, String body) {
