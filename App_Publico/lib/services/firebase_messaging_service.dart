@@ -1,8 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
-import 'notification_service.dart';
-
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Lida com mensagens em segundo plano
@@ -26,21 +24,19 @@ class FirebaseMessagingService {
       debugPrint('Usuário não concedeu permissão para notificações.');
     }
 
-    // 2. Configurar o handler de background
+    // 2. Garantir que notificações apareçam em foreground (iOS)
+    await _firebaseMessaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // 3. Configurar o handler de background
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // 3. Configurar o handler de foreground
+    // 4. Log de mensagens em foreground (a notificação já é exibida automaticamente pelo sistema)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('Recebeu uma mensagem em foreground: ${message.messageId}');
-
-      if (message.notification != null) {
-        // Exibir usando o flutter_local_notifications existente
-        NotificationService.instance.showPartidaEvento(
-          id: message.hashCode & 0x7FFFFFFF,
-          title: message.notification?.title ?? 'Nova Notificação',
-          body: message.notification?.body ?? '',
-        );
-      }
     });
   }
 

@@ -26,8 +26,55 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import static java.util.Map.entry;
+
 @Service
 public class EventoPartidaService {
+
+    // Mapeamento de nomes crus do banco → nomes amigáveis para notificações
+    private static final Map<String, String> FRIENDLY_NAMES = Map.ofEntries(
+        entry("INICIO_1_TEMPO", "Início do 1° Tempo"),
+        entry("FIM_1_TEMPO", "Fim do 1° Tempo"),
+        entry("INICIO_2_TEMPO", "Início do 2° Tempo"),
+        entry("FIM_PARTIDA", "Fim da Partida"),
+        entry("GOL", "⚽ Gol"),
+        entry("FALTA", "Falta"),
+        entry("CARTAO_AMARELO", "\uD83D\uDFE8 Cartão Amarelo"),
+        entry("CARTAO_VERMELHO", "\uD83D\uDFE5 Cartão Vermelho"),
+        entry("SUBSTITUICAO", "\uD83D\uDD04 Substituição"),
+        entry("PENALTI_MARCADO", "Pênalti Marcado"),
+        entry("PENALTI_CONVERTIDO", "⚽ Pênalti Convertido"),
+        entry("PENALTI_PERDIDO", "Pênalti Perdido"),
+        entry("TIRO_LIVRE_DIRETO", "Tiro Livre Direto"),
+        entry("PEDIDO_TEMPO", "⏱️ Pedido de Tempo"),
+        entry("WO", "W.O.")
+    );
+
+    private static String friendlyName(String rawName) {
+        if (rawName == null) return "Evento";
+        return FRIENDLY_NAMES.getOrDefault(rawName.trim().toUpperCase(), rawName);
+    }
+
+    private static String buildNotificationBody(EventoPartida ev) {
+        String nome = friendlyName(ev.getTipoEvento().getNome());
+        StringBuilder sb = new StringBuilder(nome);
+
+        // Incluir nome do atleta
+        if (ev.getIsSubstitution() != null && ev.getIsSubstitution()
+                && ev.getAtleta() != null && ev.getAtletaSai() != null) {
+            sb.append(" — Entra: ").append(ev.getAtleta().getNome())
+              .append(", Sai: ").append(ev.getAtletaSai().getNome());
+        } else if (ev.getAtleta() != null) {
+            sb.append(" — ").append(ev.getAtleta().getNome());
+        }
+
+        // Incluir descrição adicional
+        if (ev.getDescricaoDetalhada() != null && !ev.getDescricaoDetalhada().isBlank()) {
+            sb.append(": ").append(ev.getDescricaoDetalhada());
+        }
+
+        return sb.toString();
+    }
 
     public record AddEventoInput(
             UUID equipeId,
@@ -165,10 +212,7 @@ public class EventoPartidaService {
             String topic = "partida_" + partidaId.toString();
             String title = (partida.getEquipeA() != null ? partida.getEquipeA().getNomeEquipe() : "Equipe A") + " x " + 
                            (partida.getEquipeB() != null ? partida.getEquipeB().getNomeEquipe() : "Equipe B");
-            String body = ev.getTipoEvento().getNome();
-            if (ev.getDescricaoDetalhada() != null && !ev.getDescricaoDetalhada().isBlank()) {
-                body += ": " + ev.getDescricaoDetalhada();
-            }
+            String body = buildNotificationBody(ev);
             firebaseMessagingService.sendNotificationToTopic(topic, title, body);
         }
 
@@ -375,10 +419,7 @@ public class EventoPartidaService {
             String topic = "partida_" + partidaId.toString();
             String title = (partida.getEquipeA() != null ? partida.getEquipeA().getNomeEquipe() : "Equipe A") + " x " + 
                            (partida.getEquipeB() != null ? partida.getEquipeB().getNomeEquipe() : "Equipe B");
-            String body = ev.getTipoEvento().getNome();
-            if (ev.getDescricaoDetalhada() != null && !ev.getDescricaoDetalhada().isBlank()) {
-                body += ": " + ev.getDescricaoDetalhada();
-            }
+            String body = buildNotificationBody(ev);
             firebaseMessagingService.sendNotificationToTopic(topic, title, body);
         }
 
@@ -487,10 +528,7 @@ public class EventoPartidaService {
         String topic = "partida_" + partidaId.toString();
         String title = (partida.getEquipeA() != null ? partida.getEquipeA().getNomeEquipe() : "Equipe A") + " x " + 
                        (partida.getEquipeB() != null ? partida.getEquipeB().getNomeEquipe() : "Equipe B");
-        String body = tipoEvento.getNome();
-        if (descricaoDetalhada != null && !descricaoDetalhada.isBlank()) {
-            body += ": " + descricaoDetalhada;
-        }
+        String body = buildNotificationBody(saved);
         firebaseMessagingService.sendNotificationToTopic(topic, title, body);
 
         return saved;

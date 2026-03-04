@@ -1,10 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/evento_service.dart';
-import '../../../services/notification_service.dart';
-import '../../../services/live_partidas_notification_watcher.dart';
 import '../../../services/firebase_messaging_service.dart';
 
 class JogoDetalhesScreen extends StatefulWidget {
@@ -38,12 +34,11 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   // Streams para Realtime
   late final Stream<List<Map<String, dynamic>>> _eventosStream;
   late final Stream<Map<String, dynamic>> _partidaStream;
-  StreamSubscription<List<Map<String, dynamic>>>? _eventosSub;
-
   late Future<List<Map<String, dynamic>>> _futureTipos;
   List<Map<String, dynamic>> _tiposEventosCache = [];
-  bool _eventosInicialCarregado = false;
-  final Set<String> _eventosJaNotificados = {};
+
+  // Cache local de nomes de atletas (atleta_id → nome)
+  final Map<String, String> _atletaNomeCache = {};
 
   @override
   void initState() {
@@ -64,12 +59,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         .eq('partida_id', widget.partidaId)
         .order('criado_em', ascending: false);
 
-    // 2.1 Notificações locais para novos eventos:
-    // se o watcher global estiver rodando, ele já notifica (evita duplicidade).
-    if (!LivePartidasNotificationWatcher.instance.isRunning) {
-      _eventosSub = _eventosStream.listen(_handleEventosParaNotificacao);
-    }
-
     // 3. Cache dos tipos de eventos
     _futureTipos = _eventoService
         .buscarTiposPorPartida(widget.modalidadeId)
@@ -84,59 +73,64 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
 
   @override
   void dispose() {
-    _eventosSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _handleEventosParaNotificacao(
-    List<Map<String, dynamic>> eventos,
-  ) async {
-    // Só notifica se o usuário estiver logado
-    if (supabase.auth.currentSession == null) return;
+  /// Retorna o nome amigável do tipo de evento a partir do cache de tipos
+  String _friendlyEventName(Map<String, dynamic> ev) {
+    final tipoData = _tiposEventosCache.firstWhere(
+      (t) => t['id'] == ev['tipo_evento_id'],
+      orElse: () => {'nome': 'Evento'},
+    );
+    final rawName = tipoData['nome']?.toString() ?? 'Evento';
+    return EventoService.friendly(rawName);
+  }
 
-    // Primeira emissão do stream normalmente vem com o histórico — não notificar.
-    if (!_eventosInicialCarregado) {
-      for (final ev in eventos) {
-        final id = ev['id']?.toString();
-        if (id != null) _eventosJaNotificados.add(id);
+  /// Busca e retorna o nome do atleta, usando cache local
+  Future<String?> _resolveAtletaNome(String? atletaId) async {
+    if (atletaId == null || atletaId.isEmpty) return null;
+
+    // Verifica cache primeiro
+    if (_atletaNomeCache.containsKey(atletaId)) {
+      return _atletaNomeCache[atletaId];
+    }
+
+    // Busca do Supabase
+    final nome = await _eventoService.buscarNomeAtleta(atletaId);
+    if (nome != null) {
+      _atletaNomeCache[atletaId] = nome;
+    }
+    return nome;
+  }
+
+  /// Monta a descrição completa do evento com nome amigável e atleta
+  Future<String> _buildEventDescription(Map<String, dynamic> ev) async {
+    final friendlyName = _friendlyEventName(ev);
+    final atletaId = ev['atleta_id']?.toString();
+    final atletaSaiId = ev['atleta_sai_id']?.toString();
+    final isSubstitution = ev['is_substitution'] == true;
+    final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
+
+    final parts = <String>[friendlyName];
+
+    if (isSubstitution && atletaId != null && atletaSaiId != null) {
+      final nomeEntra = await _resolveAtletaNome(atletaId);
+      final nomeSai = await _resolveAtletaNome(atletaSaiId);
+      if (nomeEntra != null && nomeSai != null) {
+        parts.add('Entra: $nomeEntra, Sai: $nomeSai');
       }
-      _eventosInicialCarregado = true;
-      return;
+    } else if (atletaId != null) {
+      final nome = await _resolveAtletaNome(atletaId);
+      if (nome != null) {
+        parts.add(nome);
+      }
     }
 
-    if (eventos.isEmpty) return;
-
-    // Como está ordenado desc, os mais novos vêm primeiro.
-    // Notifica qualquer evento novo que ainda não foi visto/notificado.
-    for (final ev in eventos) {
-      final idStr = ev['id']?.toString();
-      if (idStr == null) continue;
-      if (_eventosJaNotificados.contains(idStr)) continue;
-
-      _eventosJaNotificados.add(idStr);
-
-      final tipoData = _tiposEventosCache.firstWhere(
-        (t) => t['id'] == ev['tipo_evento_id'],
-        orElse: () => {'nome': 'Evento'},
-      );
-
-      final nomeEvento = (tipoData['nome']?.toString() ?? 'Evento').trim();
-      final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
-
-      final title = '${widget.timeA} x ${widget.timeB}';
-      final body = descricao.isNotEmpty
-          ? '$nomeEvento: $descricao'
-          : nomeEvento;
-
-      // ID numérico estável (limita para int)
-      final notifId = idStr.hashCode & 0x7fffffff;
-
-      await NotificationService.instance.showPartidaEvento(
-        id: notifId,
-        title: title,
-        body: body,
-      );
+    if (descricao.isNotEmpty) {
+      parts.add(descricao);
     }
+
+    return parts.join(' — ');
   }
 
   @override
@@ -276,8 +270,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     );
   }
 
-  // ... (mantenha o restante do código igual até o _buildTimelineStream)
-
   Widget _buildTimelineStream() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _eventosStream,
@@ -313,7 +305,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: eventos.length,
-                // Adicionamos uma chave baseada no ID para o Flutter rastrear mudanças
                 itemBuilder: (context, index) => _buildAnimatedTimelineItem(
                   eventos[index],
                   index,
@@ -342,7 +333,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         return Opacity(
           opacity: value,
           child: Transform.translate(
-            // Faz o item deslizar levemente da esquerda para a direita (de -20 para 0)
             offset: Offset(-20 * (1 - value), 0),
             child: child,
           ),
@@ -353,27 +343,44 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   }
 
   Widget _buildTimelineItem(Map<String, dynamic> ev, int index, int total) {
+    final friendlyName = _friendlyEventName(ev);
+
+    // Determina ícone e cor com base no nome cru
     final tipoData = _tiposEventosCache.firstWhere(
       (t) => t['id'] == ev['tipo_evento_id'],
       orElse: () => {'nome': 'Evento'},
     );
+    final String rawNome = (tipoData['nome']?.toString() ?? '').toUpperCase();
 
-    final String nomeEvento = tipoData['nome'].toString().toUpperCase();
     IconData iconData = Icons.info_outline;
     Color iconColor = Colors.grey;
 
-    if (nomeEvento.contains('GOL')) {
+    if (rawNome.contains('GOL') || rawNome.contains('PENALTI_CONVERTIDO')) {
       iconData = Icons.sports_soccer;
       iconColor = Colors.green;
-    } else if (nomeEvento.contains('AMARELO')) {
+    } else if (rawNome.contains('AMARELO')) {
       iconData = Icons.style;
       iconColor = Colors.amber;
-    } else if (nomeEvento.contains('VERMELHO')) {
+    } else if (rawNome.contains('VERMELHO')) {
       iconData = Icons.style;
       iconColor = Colors.red;
-    } else if (nomeEvento.contains('SUBSTITUICAO')) {
+    } else if (rawNome.contains('SUBSTITUICAO')) {
       iconData = Icons.swap_horiz;
       iconColor = Colors.blue;
+    } else if (rawNome.contains('FALTA')) {
+      iconData = Icons.front_hand;
+      iconColor = Colors.orange;
+    } else if (rawNome.contains('PENALTI')) {
+      iconData = Icons.sports_soccer;
+      iconColor = Colors.deepOrange;
+    } else if (rawNome.contains('INICIO') ||
+        rawNome.contains('FIM') ||
+        rawNome.contains('PEDIDO_TEMPO')) {
+      iconData = Icons.timer;
+      iconColor = const Color(0xFFF85C39);
+    } else if (rawNome.contains('WO')) {
+      iconData = Icons.cancel;
+      iconColor = Colors.red;
     }
 
     return IntrinsicHeight(
@@ -386,7 +393,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                 height: 20,
                 color: index == 0 ? Colors.transparent : Colors.grey[300],
               ),
-              // Pequena animação de escala no ícone
               AnimatedScale(
                 duration: const Duration(milliseconds: 800),
                 scale: 1.0,
@@ -411,7 +417,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                 color: const Color(0xFFF9F9F9),
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(color: Colors.grey.shade200),
-                // Adicionamos uma sombra leve para destacar novos eventos
                 boxShadow: [
                   BoxShadow(
                     color: iconColor.withOpacity(0.05),
@@ -435,19 +440,34 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          nomeEvento,
+                          friendlyName,
                           style: TextStyle(
                             fontSize: 10,
                             color: iconColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          ev['descricao_detalhada'] ?? "",
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        // Descrição com nome do atleta (FutureBuilder para async)
+                        FutureBuilder<String>(
+                          future: _buildEventDescription(ev),
+                          builder: (context, snap) {
+                            final desc = snap.data ?? '';
+                            // Remove o friendlyName do início pois já mostramos acima
+                            final cleanDesc = desc.startsWith(friendlyName)
+                                ? desc
+                                      .substring(friendlyName.length)
+                                      .replaceFirst(RegExp(r'^\s*—\s*'), '')
+                                : desc;
+                            if (cleanDesc.isEmpty)
+                              return const SizedBox.shrink();
+                            return Text(
+                              cleanDesc,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),

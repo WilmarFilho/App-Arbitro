@@ -3,8 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'services/notification_service.dart';
-import 'services/live_partidas_notification_watcher.dart';
 import 'services/firebase_messaging_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -44,15 +42,7 @@ Future<void> main() async {
   // 4. Inicializa a localização para datas (pt_BR)
   await initializeDateFormatting('pt_BR', null);
 
-  // 5. Inicializa notificações locais
-  await NotificationService.instance.init();
-
-  // 6. Inicia watcher global de eventos ao vivo (notificação mesmo fora da tela do jogo)
-  if (Supabase.instance.client.auth.currentSession != null) {
-    await LivePartidasNotificationWatcher.instance.start();
-  }
-
-  // 7. Escuta mudanças de autenticação (Recuperação de senha + start/stop watcher)
+  // 5. Escuta mudanças de autenticação (Recuperação de senha)
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
       navigatorKey.currentState?.pushNamedAndRemoveUntil(
@@ -60,45 +50,14 @@ Future<void> main() async {
         (route) => false,
       );
     }
-
-    if (data.event == AuthChangeEvent.signedIn ||
-        data.event == AuthChangeEvent.tokenRefreshed) {
-      LivePartidasNotificationWatcher.instance.start();
-    } else if (data.event == AuthChangeEvent.signedOut) {
-      LivePartidasNotificationWatcher.instance.stop();
-    }
   });
 
-  // 8. Roda o app apenas UMA vez
+  // 6. Roda o app apenas UMA vez
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      LivePartidasNotificationWatcher.instance.refreshNow();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
