@@ -17,17 +17,30 @@ public class FirebaseCloudMessagingService {
     @PostConstruct
     public void initialize() {
         try {
-            // Requer a variável de ambiente GOOGLE_APPLICATION_CREDENTIALS 
-            // apontando para o JSON da service account ou pode ler de um arquivo local.
             if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseOptions options = FirebaseOptions.builder()
-                        .setCredentials(GoogleCredentials.getApplicationDefault())
-                        .build();
+                // Tenta carregar o arquivo a partir da pasta resources
+                InputStream serviceAccount = getClass().getClassLoader().getResourceAsStream("firebase-service-account.json");
+                
+                FirebaseOptions options;
+                if (serviceAccount != null) {
+                    options = FirebaseOptions.builder()
+                            .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                            .build();
+                    System.out.println("FirebaseApp init: Using 'firebase-service-account.json' from classpath.");
+                } else {
+                    // Tenta usar a variável GOOGLE_APPLICATION_CREDENTIALS
+                    options = FirebaseOptions.builder()
+                            .setCredentials(GoogleCredentials.getApplicationDefault())
+                            .build();
+                    System.out.println("FirebaseApp init: Using GOOGLE_APPLICATION_CREDENTIALS default.");
+                }
+                
                 FirebaseApp.initializeApp(options);
                 System.out.println("FirebaseApp initialized successfully");
             }
         } catch (Exception e) {
             System.err.println("Failed to initialize Firebase: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
