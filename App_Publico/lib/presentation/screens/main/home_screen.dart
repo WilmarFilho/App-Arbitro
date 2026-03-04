@@ -70,7 +70,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
 
     _slideAnimations = List.generate(count, (index) {
-      return Tween<Offset>(begin: const Offset(0.3, 0.0), end: Offset.zero).animate(
+      return Tween<Offset>(
+        begin: const Offset(0.3, 0.0),
+        end: Offset.zero,
+      ).animate(
         CurvedAnimation(
           parent: _animationController,
           curve: Interval(
@@ -92,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// Carrega os dados usando o Service (que já traz as relações de nomes de times)
   Future<void> _carregarDadosReais({bool isRefresh = false}) async {
     if (!mounted) return;
-    
+
     // Só mostra o loading circular na primeira carga
     if (!isRefresh) setState(() => _carregandoDados = true);
 
@@ -106,13 +109,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           _partidasDestaque = resultados[0];
           _historicoPartidas = resultados[1];
-          
+
           if (!isRefresh) {
             _initializeAnimations(_partidasDestaque.length);
           }
           _carregandoDados = false;
         });
-        
+
         if (!isRefresh) _animationController.forward();
       }
     } catch (e) {
@@ -138,7 +141,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   const SliverToBoxAdapter(child: HomeHeader()),
                   const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 22, vertical: 15),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 15,
+                      ),
                       child: Text(
                         "PARTIDAS AO VIVO",
                         style: TextStyle(
@@ -186,8 +192,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(20),
         ),
         child: const Center(
-          child: Text("Nenhuma partida ao vivo no momento", 
-            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+          child: Text(
+            "Nenhuma partida ao vivo no momento",
+            style: TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
       );
     }
@@ -203,11 +214,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           final partida = _partidasDestaque[index];
           return PartidaCard(
             partida: partida,
-            fadeAnimation: _fadeAnimations.length > index 
-                ? _fadeAnimations[index] 
+            fadeAnimation: _fadeAnimations.length > index
+                ? _fadeAnimations[index]
                 : const AlwaysStoppedAnimation(1.0),
-            slideAnimation: _slideAnimations.length > index 
-                ? _slideAnimations[index] 
+            slideAnimation: _slideAnimations.length > index
+                ? _slideAnimations[index]
                 : const AlwaysStoppedAnimation(Offset.zero),
             onTap: () => _navegarParaPartida(context, partida),
           );
@@ -221,7 +232,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       decoration: const BoxDecoration(
         color: Color(0xFFF8F9FA),
         borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -5))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, -5),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -230,14 +247,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("HISTÓRICO", 
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Bebas Neue')),
+                const Text(
+                  "HISTÓRICO",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Bebas Neue',
+                  ),
+                ),
                 GestureDetector(
                   onTap: () => setState(() => _verMeus = !_verMeus),
                   child: Text(
                     _verMeus ? 'Ver Tudo' : 'Meus Favoritos',
                     style: TextStyle(
-                      color: _verMeus ? const Color(0xFFF85C39) : Colors.grey[600],
+                      color: _verMeus
+                          ? const Color(0xFFF85C39)
+                          : Colors.grey[600],
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -256,13 +281,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Text("Nenhuma partida finalizada recentemente."),
             )
           else
-            ..._historicoPartidas.map((partida) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-              child: PartidaListItem(
-                partida: partida,
-                onTap: () => _navegarParaPartida(context, partida),
-              ),
-            )).toList(),
+            ..._historicoPartidas
+                .map(
+                  (partida) => Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 8,
+                    ),
+                    child: PartidaListItem(
+                      partida: partida,
+                      onTap: () => _navegarParaPartida(context, partida),
+                    ),
+                  ),
+                )
+                .toList(),
           const SizedBox(height: 100),
         ],
       ),
@@ -276,14 +308,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         builder: (_) => JogoDetalhesScreen(
           partidaId: partida.id,
           modalidadeId: partida.modalidadeId,
-          timeA: partida.equipeA?.nome ?? "Time A",
-          timeB: partida.equipeB?.nome ?? "Time B",
+          timeA: partida.equipeA?.atletica?.nome ?? "Time A",
+          timeB: partida.equipeB?.atletica?.nome ?? "Time B",
+          EscudoTimeA: partida.equipeA?.atletica?.escudoUrl ?? "",
+          EscudoTimeB: partida.equipeB?.atletica?.escudoUrl ?? "",
           status: partida.status.toUpperCase(),
           placarA: partida.placarA.toString(),
           placarB: partida.placarB.toString(),
         ),
       ),
-    ).then((_) => _carregarDadosReais(isRefresh: true)); 
+    ).then((_) => _carregarDadosReais(isRefresh: true));
     // O .then() garante que ao voltar, a home atualize os dados uma última vez por segurança
   }
 }

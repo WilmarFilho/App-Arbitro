@@ -155,11 +155,7 @@ class PartidaService {
 
       if ((response.statusCode == 200 || response.statusCode == 201) &&
           _db != null) {
-        await _db!.delete(
-          'fila_eventos',
-          where: 'id = ?',
-          whereArgs: [rowId],
-        );
+        await _db!.delete('fila_eventos', where: 'id = ?', whereArgs: [rowId]);
       }
     } catch (e) {
       debugPrint("Erro evento individual: $e");
@@ -177,7 +173,6 @@ class PartidaService {
     String? descricao,
     bool isSubstitution = false,
   }) async {
-   
     // PAYLOAD EXATO CONFORME SEU SWAGGER
     final Map<String, dynamic> payload = {
       "partidaId": partidaId,
@@ -187,7 +182,7 @@ class PartidaService {
       "isSubstitution": isSubstitution,
       "tipoEventoId": tipoEventoId,
       "tempoCronometro": tempoFormatado,
-      "descricaoDetalhada": descricao ?? ""
+      "descricaoDetalhada": descricao ?? "",
     };
 
     if (_db != null) {
@@ -258,7 +253,9 @@ class PartidaService {
     await Future.wait(uniques.map(buscarEquipePorId));
   }
 
-  Future<List<Partida>> _enriquecerPartidasComEquipes(List<Partida> partidas) async {
+  Future<List<Partida>> _enriquecerPartidasComEquipes(
+    List<Partida> partidas,
+  ) async {
     final ids = <String>[];
     for (final p in partidas) {
       ids.add(p.equipeAId);
@@ -292,8 +289,9 @@ class PartidaService {
     try {
       final response = await _dio.get('/partidas');
       if (response.statusCode == 200) {
-        final partidas =
-            (response.data as List).map((m) => Partida.fromMap(m)).toList();
+        final partidas = (response.data as List)
+            .map((m) => Partida.fromMap(m))
+            .toList();
         return await _enriquecerPartidasComEquipes(partidas);
       }
     } catch (e) {
@@ -306,8 +304,9 @@ class PartidaService {
     try {
       final response = await _dio.get('/partidas/minhas');
       if (response.statusCode == 200) {
-        final partidas =
-            (response.data as List).map((m) => Partida.fromMap(m)).toList();
+        final partidas = (response.data as List)
+            .map((m) => Partida.fromMap(m))
+            .toList();
         return await _enriquecerPartidasComEquipes(partidas);
       }
     } catch (e) {
@@ -389,18 +388,12 @@ class PartidaService {
 
   // --- MÉTODOS DE ATUALIZAÇÃO ---
 
-  Future<void> atualizarPartida(
-    String partidaId, {
-    String? novoStatus,
-  }) async {
+  Future<void> atualizarPartida(String partidaId, {String? novoStatus}) async {
     final status = novoStatus?.trim();
     if (status == null || status.isEmpty) return;
 
     try {
-      await _dio.patch(
-        '/partidas/$partidaId/status',
-        data: {"status": status},
-      );
+      await _dio.patch('/partidas/$partidaId/status', data: {"status": status});
     } catch (e) {
       debugPrint("Erro atualizar status da partida: $e");
     }

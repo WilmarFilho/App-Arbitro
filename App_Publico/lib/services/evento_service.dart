@@ -15,11 +15,18 @@ class EventoService {
     'CARTAO_VERMELHO': '🟥 Cartão Vermelho',
     'SUBSTITUICAO': '🔄 Substituição',
     'PENALTI_MARCADO': 'Pênalti Marcado',
-    'PENALTI_CONVERTIDO': '⚽ Pênalti Convertido',
+    'PENALTI': '⚽ Pênalti',
     'PENALTI_PERDIDO': 'Pênalti Perdido',
     'TIRO_LIVRE_DIRETO': 'Tiro Livre Direto',
-    'PEDIDO_TEMPO': '⏱️ Pedido de Tempo',
-    'WO': 'W.O.',
+    'INTERVALO': '⏸️ Intervalo',
+    'PRORROGACAO': '⏱️ Prorrogação',
+    'PRORROGACAO_DADA': '⏱️ Prorrogação Definida',
+    'ACRESCIMO': '⏱️ Acréscimo',
+    'ACRESCIMO_DADO': '⏱️ Acréscimo Definido',
+    'PAUSA_TECNICA': '⏸️ Pausa Técnica',
+    'FIM_PAUSA_TECNICA': '▶️ Fim da Pausa Técnica',
+    'PARTIDA_RETOMADA': '▶️ Partida Retomada',
+    'PARTIDA_PAUSADA': '⏸️ Partida Pausada',
   };
 
   /// Retorna o nome amigável do tipo de evento a partir do nome cru do banco

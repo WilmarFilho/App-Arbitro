@@ -23,7 +23,9 @@ class CompeticaoService {
     return [];
   }
 
-  Future<List<Modalidade>> listarModalidadesPorCampeonato(String campeonatoId) async {
+  Future<List<Modalidade>> listarModalidadesPorCampeonato(
+    String campeonatoId,
+  ) async {
     try {
       final res = await _client.get('/campeonatos/$campeonatoId/modalidades');
       if (res.statusCode == 200 && res.data is List) {
@@ -37,7 +39,11 @@ class CompeticaoService {
     return [];
   }
 
-  Future<List<Equipe>> listarEquipes({String? campeonatoId, String? modalidadeId, String? atleticaId}) async {
+  Future<List<Equipe>> listarEquipes({
+    String? campeonatoId,
+    String? modalidadeId,
+    String? atleticaId,
+  }) async {
     try {
       final res = await _client.get(
         '/equipes',
@@ -57,10 +63,9 @@ class CompeticaoService {
     }
     return [];
   }
-  
+
   /// Busca uma equipe específica na API REST (/api/v1/equipes/{id})
   Future<Equipe?> buscarEquipePorId(String id) async {
-    debugPrint('RRRRRRRRRRRRRRbuscarEquipePorId: $id');
     try {
       final res = await _client.get('/equipes/$id');
       if (res.statusCode == 200 && res.data is Map) {
@@ -72,7 +77,10 @@ class CompeticaoService {
     return null;
   }
 
-  Future<List<PartidaApi>> listarPartidas({String? modalidadeId, String? status}) async {
+  Future<List<PartidaApi>> listarPartidas({
+    String? modalidadeId,
+    String? status,
+  }) async {
     try {
       final res = await _client.get(
         '/partidas',

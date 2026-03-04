@@ -189,6 +189,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     for (int i = 0; i < jogadores.length; i++) {
       if (i < listaPosicoes.length) {
         jogadores[i].posicao = listaPosicoes[i];
+        debugPrint(
+          "Posição do jogador ${jogadores[i].nome}: ${jogadores[i].posicao}",
+        );
       }
     }
   }
@@ -1298,9 +1301,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                       ),
                       Text(
                         // Acessando o nome da equipe corretamente através do modelo da partida
-                        isTimeA
-                            ? _nomeTimeA
-                            : _nomeTimeB,
+                        isTimeA ? _nomeTimeA : _nomeTimeB,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -1513,6 +1514,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         tempoFormatado: _formatarTempo(_segundos),
         atletaId: entrando.atletaId,
         atletaSaiId: saindo.atletaId,
+        equipeId: isA ? widget.partida.equipeAId : widget.partida.equipeBId,
         isSubstitution: true,
       );
 

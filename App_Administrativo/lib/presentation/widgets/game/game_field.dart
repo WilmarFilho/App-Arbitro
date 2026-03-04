@@ -48,10 +48,10 @@ class GameField extends StatelessWidget {
                   ),
                 ),
               ),
-              // Renderiza todos os jogadores
+              // Renderiza apenas jogadores com posição definida (titulares no campo)
               ...[
-                ...jogadoresA,
-                ...jogadoresB,
+                ...jogadoresA.where((jog) => jog.posicao != null),
+                ...jogadoresB.where((jog) => jog.posicao != null),
               ].map((jog) => _buildPlayerWidget(jog, campoWidth, campoHeight)),
             ],
           ),

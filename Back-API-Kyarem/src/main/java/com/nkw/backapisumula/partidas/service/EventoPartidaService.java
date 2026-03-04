@@ -43,11 +43,18 @@ public class EventoPartidaService {
         entry("CARTAO_VERMELHO", "\uD83D\uDFE5 Cartão Vermelho"),
         entry("SUBSTITUICAO", "\uD83D\uDD04 Substituição"),
         entry("PENALTI_MARCADO", "Pênalti Marcado"),
-        entry("PENALTI_CONVERTIDO", "⚽ Pênalti Convertido"),
+        entry("PENALTI", "⚽ Pênalti"),
         entry("PENALTI_PERDIDO", "Pênalti Perdido"),
         entry("TIRO_LIVRE_DIRETO", "Tiro Livre Direto"),
-        entry("PEDIDO_TEMPO", "⏱️ Pedido de Tempo"),
-        entry("WO", "W.O.")
+        entry("INTERVALO", "⏸️ Intervalo"),
+        entry("PRORROGACAO", "⏱️ Prorrogação"),
+        entry("PRORROGACAO_DADA", "⏱️ Prorrogação Definida"),
+        entry("ACRESCIMO", "⏱️ Acréscimo"),
+        entry("ACRESCIMO_DADO", "⏱️ Acréscimo Definido"),
+        entry("PAUSA_TECNICA", "⏸️ Pausa Técnica"),
+        entry("FIM_PAUSA_TECNICA", "▶️ Fim da Pausa Técnica"),
+        entry("PARTIDA_RETOMADA", "▶️ Partida Retomada"),
+        entry("PARTIDA_PAUSADA", "⏸️ Partida Pausada")
     );
 
     private static String friendlyName(String rawName) {

@@ -8,6 +8,8 @@ class JogoDetalhesScreen extends StatefulWidget {
   final String modalidadeId;
   final String timeA;
   final String timeB;
+  final String? EscudoTimeA;
+  final String? EscudoTimeB;
   final String placarA;
   final String placarB;
   final String status;
@@ -18,6 +20,8 @@ class JogoDetalhesScreen extends StatefulWidget {
     required this.modalidadeId,
     required this.timeA,
     required this.timeB,
+    this.EscudoTimeA,
+    this.EscudoTimeB,
     this.placarA = "0",
     this.placarB = "0",
     this.status = "AO VIVO",
@@ -201,7 +205,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildTeamBadge(widget.timeA),
+          _buildTeamBadge(widget.timeA, widget.EscudoTimeA),
           Column(
             children: [
               Text(
@@ -232,26 +236,29 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
               ),
             ],
           ),
-          _buildTeamBadge(widget.timeB),
+          _buildTeamBadge(widget.timeB, widget.EscudoTimeB),
         ],
       ),
     );
   }
 
-  Widget _buildTeamBadge(String nome) {
+  Widget _buildTeamBadge(String nome, String? escudo) {
     return Column(
       children: [
         CircleAvatar(
           radius: 35,
           backgroundColor: Colors.white.withOpacity(0.2),
-          child: Text(
-            nome.isNotEmpty ? nome[0] : "?",
-            style: const TextStyle(
-              fontSize: 32,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          backgroundImage: escudo != null ? NetworkImage(escudo) : null,
+          child: escudo == null
+              ? Text(
+                  nome.isNotEmpty ? nome[0] : "?",
+                  style: const TextStyle(
+                    fontSize: 32,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
         ),
         const SizedBox(height: 10),
         SizedBox(
