@@ -25,8 +25,14 @@ class PartidaCard extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: 280,
-            margin: const EdgeInsets.only(right: 16, bottom: 18), // Pequena margem para sombra não cortar
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Padding vertical reduzido
+            margin: const EdgeInsets.only(
+              right: 16,
+              bottom: 18,
+            ), // Pequena margem para sombra não cortar
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ), // Padding vertical reduzido
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFF3A68F), Color(0xFFF85C39)],
@@ -43,11 +49,15 @@ class PartidaCard extends StatelessWidget {
               ],
             ),
             child: Column(
-              mainAxisSize: MainAxisSize.min, // Ocupa apenas o espaço necessário
+              mainAxisSize:
+                  MainAxisSize.min, // Ocupa apenas o espaço necessário
               children: [
                 // Badge de Status (AO VIVO ou AGENDADO)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -63,7 +73,6 @@ class PartidaCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(), // Distribui o espaço dinamicamente
-                
                 // Área dos Times e Placar
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -115,31 +124,38 @@ class PartidaCard extends StatelessWidget {
 
   Widget _buildTeamInfo(String nome, String? logoUrl) {
     return SizedBox(
-      width: 75,
+      width: 80, // Aumentado levemente de 75 para 80 para dar mais margem
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            radius: 20, // Reduzido de 24 para 20
+            radius: 20,
             backgroundColor: Colors.white.withOpacity(0.3),
             backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
             child: logoUrl == null
                 ? Text(
                     nome[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                   )
                 : null,
           ),
-          const SizedBox(height: 4), // Reduzido de 8 para 4
+          const SizedBox(height: 6),
           Text(
             nome,
             textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 2, // Permitir até 2 linhas
+            softWrap: true, // Habilitar quebra de linha
+            overflow: TextOverflow
+                .ellipsis, // Se for maior que 2 linhas, coloca "..."
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 11, // Reduzido de 12 para 11
+              fontSize: 10, // Reduzido para 10 para comportar melhor a quebra
               fontWeight: FontWeight.w600,
+              height: 1.1, // Ajuste de altura de linha para ficar compacto
             ),
           ),
         ],

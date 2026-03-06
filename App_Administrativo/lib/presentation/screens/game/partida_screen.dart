@@ -151,8 +151,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
       if (atleta.ativo) {
         titulares.add(atleta);
+        debugPrint("TTT titulares: ${atleta.equipeId} - ${atleta.nome}");
       } else {
         reservas.add(atleta);
+        debugPrint("TTT reservas: ${atleta.equipeId} - ${atleta.nome}");
       }
     }
 
@@ -838,9 +840,13 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
     // 6. Persistência no Banco de Dados/API
 
+    final String equipeIdCorreta =
+        jogador.equipeId ??
+        (isTimeA ? widget.partida.equipeAId : widget.partida.equipeBId);
+
     _partidaService.salvarEvento(
       partidaId: widget.partida.id,
-      equipeId: jogador.equipeId,
+      equipeId: equipeIdCorreta,
       tipoEventoId: tipoObjeto.id,
       tempoFormatado: _formatarTempo(_segundos),
       atletaId: jogador.atletaId,
@@ -1077,177 +1083,155 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
             // 1. Fundo com Gradiente (Sempre visível)
             const GradientBackground(),
 
-            // 2. Conteúdo Principal da UI
-            SafeArea(
-              child: Opacity(
-                // Se estiver carregando, a UI fica semi-transparente
-                opacity: _carregandoDados ? 0.3 : 1.0,
-                child: IgnorePointer(
-                  // Se estiver carregando, bloqueia cliques em tudo
-                  ignoring: _carregandoDados,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 10),
+            // Se estiver carregando, mostra o Skeleton, senão mostra o jogo
+            _carregandoDados
+                ? _buildLoadingState()
+                : // 2. Conteúdo Principal da UI
+                  SafeArea(
+                    child: Opacity(
+                      // Se estiver carregando, a UI fica semi-transparente
+                      opacity: _carregandoDados ? 0.3 : 1.0,
+                      child: IgnorePointer(
+                        // Se estiver carregando, bloqueia cliques em tudo
+                        ignoring: _carregandoDados,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 10),
 
-                        // Placar
-                        GameScoreboard(
-                          timeA: _nomeTimeA,
-                          timeB: _nomeTimeB,
-                          golsA: _golsA,
-                          golsB: _golsB,
-                          periodoAtual: _periodoAtual,
-                          emPausaTecnica: _emPausaTecnica,
-                          rodando: _rodando,
-                          timeEmPausaTecnica: _timeEmPausaTecnica,
-                          segundosPausaTecnica: _segundosPausaTecnica,
-                          podeUsarPausaTecnica: _podeUsarPausaTecnica,
-                          onPausaTecnicaIniciada: _iniciarPausaTecnica,
-                          onPausaTecnicaFinalizada: _finalizarPausaTecnica,
-                        ),
+                              // Placar
+                              GameScoreboard(
+                                timeA: _nomeTimeA,
+                                timeB: _nomeTimeB,
+                                golsA: _golsA,
+                                golsB: _golsB,
+                                periodoAtual: _periodoAtual,
+                                emPausaTecnica: _emPausaTecnica,
+                                rodando: _rodando,
+                                timeEmPausaTecnica: _timeEmPausaTecnica,
+                                segundosPausaTecnica: _segundosPausaTecnica,
+                                podeUsarPausaTecnica: _podeUsarPausaTecnica,
+                                onPausaTecnicaIniciada: _iniciarPausaTecnica,
+                                onPausaTecnicaFinalizada:
+                                    _finalizarPausaTecnica,
+                              ),
 
-                        const SizedBox(height: 12),
+                              const SizedBox(height: 12),
 
-                        // Feed de Eventos
-                        GameEventsFeed(eventos: _eventosPartida),
+                              // Feed de Eventos
+                              GameEventsFeed(eventos: _eventosPartida),
 
-                        const SizedBox(height: 12),
+                              const SizedBox(height: 12),
 
-                        // Card do Cronómetro e Controles de Tempo
-                        GameTimerCard(
-                          segundos: _segundos,
-                          rodando: _rodando,
-                          partidaJaIniciou: _partidaJaIniciou,
-                          periodoAtual: _periodoAtual,
-                          emPausaTecnica: _emPausaTecnica,
-                          timeEmPausaTecnica: _timeEmPausaTecnica,
-                          segundosPausaTecnica: _segundosPausaTecnica,
-                          segundosPausa: _segundosPausa,
-                          tempoProrrogacao: _tempoProrrogacao,
-                          temProrrogacao: _temProrrogacao,
-                          temAcrescimo: _temAcrescimo,
-                          tempoAcrescimo: _tempoAcrescimo,
-                          onToggleCronometro: _alternarCronometro,
-                          onFinalizarPrimeiroTempo: _finalizarPrimeiroTempo,
-                          onFinalizarSegundoTempo: _finalizarPartida,
-                          onAbrirModalProrrogacao: _abrirModalProrrogacao,
-                          onAbrirModalAcrescimo: _abrirModalAcrescimo,
-                        ),
+                              // Card do Cronómetro e Controles de Tempo
+                              GameTimerCard(
+                                segundos: _segundos,
+                                rodando: _rodando,
+                                partidaJaIniciou: _partidaJaIniciou,
+                                periodoAtual: _periodoAtual,
+                                emPausaTecnica: _emPausaTecnica,
+                                timeEmPausaTecnica: _timeEmPausaTecnica,
+                                segundosPausaTecnica: _segundosPausaTecnica,
+                                segundosPausa: _segundosPausa,
+                                tempoProrrogacao: _tempoProrrogacao,
+                                temProrrogacao: _temProrrogacao,
+                                temAcrescimo: _temAcrescimo,
+                                tempoAcrescimo: _tempoAcrescimo,
+                                onToggleCronometro: _alternarCronometro,
+                                onFinalizarPrimeiroTempo:
+                                    _finalizarPrimeiroTempo,
+                                onFinalizarSegundoTempo: _finalizarPartida,
+                                onAbrirModalProrrogacao: _abrirModalProrrogacao,
+                                onAbrirModalAcrescimo: _abrirModalAcrescimo,
+                              ),
 
-                        const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                        // Campo de Jogo com Jogadores
-                        GameField(
-                          jogadoresA: _jogadoresA,
-                          jogadoresB: _jogadoresB,
-                          jogadorSelecionado: _jogadorSelecionado,
-                          onJogadorSelecionado: (jogador) {
-                            setState(() => _jogadorSelecionado = jogador);
-                          },
-                          onJogadorDoubleTap: _abrirDetalhesJogador,
-                        ),
+                              // Campo de Jogo com Jogadores
+                              GameField(
+                                jogadoresA: _jogadoresA,
+                                jogadoresB: _jogadoresB,
+                                jogadorSelecionado: _jogadorSelecionado,
+                                onJogadorSelecionado: (jogador) {
+                                  setState(() => _jogadorSelecionado = jogador);
+                                },
+                                onJogadorDoubleTap: _abrirDetalhesJogador,
+                              ),
 
-                        const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                        // Painel de Ações (Gols, Cartões, etc)
-                        GameActionsPanel(
-                          jogadorSelecionado: _jogadorSelecionado,
-                          periodoAtual: _periodoAtual,
-                          onRegistrarEvento: _registrarEvento,
-                          tiposDeEventos: _tiposDeEventosDisponiveis,
-                        ),
+                              // Painel de Ações (Gols, Cartões, etc)
+                              GameActionsPanel(
+                                jogadorSelecionado: _jogadorSelecionado,
+                                periodoAtual: _periodoAtual,
+                                onRegistrarEvento: _registrarEvento,
+                                tiposDeEventos: _tiposDeEventosDisponiveis,
+                              ),
 
-                        const SizedBox(height: 20),
+                              const SizedBox(height: 20),
 
-                        // Botão Gerar Súmula (Só aparece no fim)
-                        if (_periodoAtual == PeriodoPartida.finalizada) ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => MatchSummaryScreen(
-                                      timeA: _nomeTimeA,
-                                      timeB: _nomeTimeB,
-                                      golsA: _golsA,
-                                      golsB: _golsB,
-                                      eventos: _eventosPartida,
+                              // Botão Gerar Súmula (Só aparece no fim)
+                              if (_periodoAtual ==
+                                  PeriodoPartida.finalizada) ...[
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              MatchSummaryScreen(
+                                                timeA: _nomeTimeA,
+                                                timeB: _nomeTimeB,
+                                                golsA: _golsA,
+                                                golsB: _golsB,
+                                                eventos: _eventosPartida,
+                                              ),
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.analytics),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'VER RESUMO DA PARTIDA',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(50),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.analytics),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'VER RESUMO DA PARTIDA',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              // Botão Sair/Voltar dinâmico
+                              _buildBotaoVoltar(),
+
+                              const SizedBox(height: 30),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Botão Sair/Voltar dinâmico
-                        _buildBotaoVoltar(),
-
-                        const SizedBox(height: 30),
-                      ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
-
-            // 3. Loader Central (Aparece por cima de tudo)
-            if (_carregandoDados)
-              Container(
-                color: Colors.black54, // Escurece o fundo
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.orange,
-                        ),
-                        strokeWidth: 3,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        "Carregando equipas e atletas...",
-                        style: TextStyle(
-                          // ignore: deprecated_member_use
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -1342,11 +1326,16 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    "${jogadorSaindo.nome} (#${jogadorSaindo.numero})",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      "${jogadorSaindo.nome} (#${jogadorSaindo.numero})",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      softWrap: true, // Permite quebra de linha
+                      maxLines:
+                          2, // Permite até 2 linhas antes de qualquer outro tratamento
                     ),
                   ),
                 ],
@@ -1447,29 +1436,72 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     );
   }
 
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Placar fake
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00FFC2)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Texto de status
+          Text(
+            "PREPARANDO CAMPO...",
+            style: TextStyle(
+              color: const Color.fromARGB(255, 39, 39, 39).withOpacity(0.5),
+              letterSpacing: 2,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmarSubstituicao(Atleta saindo, Atleta entrando) {
     setState(() {
       final isA = _jogadoresA.contains(saindo);
       final listTitulares = isA ? _jogadoresA : _jogadoresB;
       final listReservas = isA ? _reservasA : _reservasB;
 
+      // Define a equipeId correta baseada em qual lista o jogador saindo está
+      final equipeIdCorreta = isA
+          ? widget.partida.equipeAId
+          : widget.partida.equipeBId;
+
+      debugPrint("TTT equipeId identificado: $equipeIdCorreta");
+
+      // 1. Substitui o titular
       int idx = listTitulares.indexOf(saindo);
       listTitulares[idx] = Atleta(
         id: entrando.id,
         atletaId: entrando.atletaId,
-        ativo: entrando.ativo,
+        equipeId: equipeIdCorreta, // Garante o ID da equipe
+        ativo: true,
         numero: entrando.numero,
         nome: entrando.nome,
-        corTime: entrando.corTime,
+        corTime: entrando.corTime ?? (isA ? Colors.orange : Colors.blue),
         posicao: saindo.posicao,
       );
 
+      // 2. Remove da lista de reservas e adiciona o que saiu
       listReservas.remove(entrando);
       listReservas.add(
         Atleta(
-          id: entrando.id,
-          atletaId: entrando.atletaId,
-          ativo: entrando.ativo,
+          id: saindo.id,
+          atletaId: saindo.atletaId,
+          equipeId: equipeIdCorreta, // Garante o ID da equipe
+          ativo: false,
           numero: saindo.numero,
           nome: saindo.nome,
           corTime: saindo.corTime,
@@ -1477,6 +1509,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         ),
       );
 
+      // 3. Registro visual no feed
       _eventosPartida.insert(
         0,
         EventoPartida(
@@ -1488,19 +1521,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         ),
       );
 
-      // Mostrar confirmação do evento registrado
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Substituição registrada: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})",
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
+      // 4. Busca o tipo de evento correto
       final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
-        (e) => e.nome == 'SUBSTITUIÇÃO',
+        (e) => e.nome.toUpperCase() == 'SUBSTITUIÇÃO',
         orElse: () => TipoEventoEsporte(
           id: '',
           nome: 'SUBSTITUIÇÃO',
@@ -1509,14 +1532,26 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         ),
       );
 
+      // 5. Persistência no banco com equipeId garantido
       _partidaService.salvarEvento(
         partidaId: widget.partida.id,
         tipoEventoId: tipoEvento.id,
         tempoFormatado: _formatarTempo(_segundos),
         atletaId: entrando.atletaId,
         atletaSaiId: saindo.atletaId,
-        equipeId: isA ? widget.partida.equipeAId : widget.partida.equipeBId,
+        equipeId: equipeIdCorreta, // Valor validado aqui
         isSubstitution: true,
+      );
+
+      // 6. Feedback e Limpeza
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Substituição: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})",
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
       );
 
       _jogadorSelecionado = null;

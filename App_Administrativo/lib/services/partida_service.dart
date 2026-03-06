@@ -174,6 +174,10 @@ class PartidaService {
     bool isSubstitution = false,
   }) async {
     // PAYLOAD EXATO CONFORME SEU SWAGGER
+
+    debugPrint("VSV equipeId: $equipeId");
+    debugPrint("VSV atletaId: $atletaId");
+
     final Map<String, dynamic> payload = {
       "partidaId": partidaId,
       "equipeId": (equipeId?.isEmpty ?? true) ? null : equipeId,

@@ -43,16 +43,25 @@ class GameScoreboard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildTeamScore(timeA, Icons.laptop, golsA, true),
-          Container(width: 2, height: 80, color: Colors.grey[200]),
-          _buildTeamScore(timeB, Icons.add_moderator, golsB, false),
+          // Envolvemos cada coluna com Expanded para dividirem o espaço igualmente
+          Expanded(child: _buildTeamScore(timeA, Icons.laptop, golsA, true)),
+
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            width: 2,
+            height: 80,
+            color: Colors.grey[200],
+          ),
+
+          Expanded(
+            child: _buildTeamScore(timeB, Icons.add_moderator, golsB, false),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildTeamScore(String nome, IconData icon, int gols, bool isTimeA) {
-    // AJUSTE: Adicionada a verificação 'rodando'
     bool podeUsarPausa =
         rodando &&
         podeUsarPausaTecnica(isTimeA) &&
@@ -61,12 +70,21 @@ class GameScoreboard extends StatelessWidget {
             periodoAtual == PeriodoPartida.prorrogacao);
 
     return Column(
+      mainAxisSize: MainAxisSize
+          .min, // Garante que a coluna não ocupe espaço desnecessário
       children: [
         Text(
           nome,
+          maxLines: 2,
+          softWrap: true,
+          textAlign:
+              TextAlign.center, // Centraliza o nome caso ele quebre linha
           style: const TextStyle(
             fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
+            letterSpacing:
+                1.2, // Reduzi levemente o espaçamento para ajudar no encaixe
+            fontSize:
+                18, // Reduzi de 22 para 18 para comportar melhor nomes longos em 2 linhas
           ),
         ),
         const SizedBox(height: 8),
