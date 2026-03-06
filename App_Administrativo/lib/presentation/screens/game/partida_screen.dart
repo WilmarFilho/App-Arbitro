@@ -32,8 +32,9 @@ class PartidaRunningScreen extends StatefulWidget {
 }
 
 class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
-  static const int duracaoPrimeiroTempo = 1 * 10;
-  static const int duracaoSegundoTempo = 20 * 60;
+  static const int duracaoPrimeiroTempo = 20 * 60; // 1200 segundos
+  static const int duracaoSegundoTempo =
+      40 * 60; // 2400 segundos (Total acumulado)
 
   final PartidaService _partidaService = PartidaService();
   List<TipoEventoEsporte> _tiposDeEventosDisponiveis = [];
@@ -299,7 +300,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
       case PeriodoPartida.primeiroTempo:
         if (_segundos >= duracaoPrimeiroTempo) {
           if (_temAcrescimo && !_estaNoAcrescimo) {
-            // Iniciar acrescimo do primeiro tempo
             _iniciarAcrescimo();
             _estaNoAcrescimo = true;
           } else {
@@ -372,10 +372,11 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
     setState(() {
       _periodoAntesDoAcrescimo = _periodoAtual;
-      _rodando = true; // Já começa rodando
+      _rodando = true;
       _estaNoAcrescimo = true;
       _periodoAtual = PeriodoPartida.acrescimo;
-      _segundos = 0; // Reset para contar o tempo do acréscimo
+
+      _tempoAcrescimo = _segundos + _tempoAcrescimo;
     });
 
     // Inicia o contador
@@ -712,7 +713,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
           case PeriodoPartida.intervalo:
             _periodoAtual = PeriodoPartida.segundoTempo;
-            _segundos = 0;
+            _segundos = duracaoPrimeiroTempo;
             _registrarEventoSistemico('INICIO_2_TEMPO');
 
             _partidaService.atualizarPartida(

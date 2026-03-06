@@ -359,6 +359,8 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     );
     final String rawNome = (tipoData['nome']?.toString() ?? '').toUpperCase();
 
+    debugPrint('rawNome: $rawNome');
+
     IconData iconData = Icons.info_outline;
     Color iconColor = Colors.grey;
 
@@ -371,7 +373,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     } else if (rawNome.contains('VERMELHO')) {
       iconData = Icons.style;
       iconColor = Colors.red;
-    } else if (rawNome.contains('SUBSTITUICAO')) {
+    } else if (rawNome.contains('SUBSTITUIÇÃO')) {
       iconData = Icons.swap_horiz;
       iconColor = Colors.blue;
     } else if (rawNome.contains('FALTA')) {
@@ -382,6 +384,8 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       iconColor = Colors.deepOrange;
     } else if (rawNome.contains('INICIO') ||
         rawNome.contains('FIM') ||
+        rawNome.contains('ACRESCIMO') ||
+        rawNome.contains('PRORROGACAO') ||
         rawNome.contains('PEDIDO_TEMPO')) {
       iconData = Icons.timer;
       iconColor = const Color(0xFFF85C39);
@@ -459,6 +463,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                           future: _buildEventDescription(ev),
                           builder: (context, snap) {
                             final desc = snap.data ?? '';
+                            debugPrint('desc: $desc');
                             // Remove o friendlyName do início pois já mostramos acima
                             final cleanDesc = desc.startsWith(friendlyName)
                                 ? desc
