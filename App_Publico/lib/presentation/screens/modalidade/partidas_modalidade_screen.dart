@@ -517,22 +517,4 @@ class _PartidaTile extends StatelessWidget {
       ],
     );
   }
-
-  Widget _buildEscudo(String url, String nome) {
-    return CircleAvatar(
-      radius: 14,
-      backgroundColor: Colors.grey.shade200,
-      backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
-      child: url.isEmpty
-          ? Text(
-              nome.isNotEmpty ? nome[0] : '?',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            )
-          : null,
-    );
-  }
 }
