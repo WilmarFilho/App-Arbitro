@@ -24,13 +24,22 @@ class PartidasModalidadeScreen extends StatefulWidget {
 
 enum _FiltroStatus { todas, agendadas, emAndamento, finalizadas }
 
+// ✅ Struct auxiliar para guardar nome + escudo da equipe
+class _DadosEquipe {
+  final String nome;
+  final String? escudoUrl;
+  const _DadosEquipe({required this.nome, this.escudoUrl});
+}
+
 class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
   final _service = CompeticaoService();
 
   bool _loading = true;
   _FiltroStatus _filtro = _FiltroStatus.todas;
   List<PartidaApi> _partidas = [];
-  Map<String, String> _equipeNomeById = {};
+
+  // ✅ Mapa agora guarda nome + escudo
+  Map<String, _DadosEquipe> _equipeById = {};
 
   @override
   void initState() {
@@ -57,34 +66,46 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
       if (b != null && b.trim().isNotEmpty) idsEquipes.add(b);
     }
 
-    // 3) Para cada ID, fazer request `/api/v1/equipes/{id}` via service
-    final Map<String, String> nomesEquipes = {};
+    // 3) Para cada ID, buscar equipe e guardar nome + escudo
+    final Map<String, _DadosEquipe> dadosEquipes = {};
     await Future.wait(
       idsEquipes.map((id) async {
         final equipe = await _service.buscarEquipePorId(id);
         if (equipe != null && equipe.id.isNotEmpty) {
-          nomesEquipes[equipe.id] = equipe.nome;
+          dadosEquipes[equipe.id] = _DadosEquipe(
+            nome: equipe.nome,
+            // ✅ Ajuste o campo conforme seu modelo — pode ser:
+            // equipe.atleticaEscudoUrl, equipe.escudoUrl, equipe.logoUrl, etc.
+            escudoUrl: equipe.atleticaEscudoUrl,
+          );
         }
       }),
     );
 
-    _equipeNomeById = nomesEquipes;
+    _equipeById = dadosEquipes;
 
-    // 4) Enriquecer nomes das equipes na lista de partidas
+    // 4) Enriquecer nomes E escudos das equipes na lista de partidas
     var enriched = partidas
         .map(
           (p) => p.copyWith(
             equipeANome: p.equipeAId != null
-                ? _equipeNomeById[p.equipeAId!]
+                ? _equipeById[p.equipeAId!]?.nome
                 : null,
             equipeBNome: p.equipeBId != null
-                ? _equipeNomeById[p.equipeBId!]
+                ? _equipeById[p.equipeBId!]?.nome
+                : null,
+            // ✅ Novos campos — adicione-os ao copyWith do seu PartidaApi
+            equipeAEscudo: p.equipeAId != null
+                ? _equipeById[p.equipeAId!]?.escudoUrl
+                : null,
+            equipeBEscudo: p.equipeBId != null
+                ? _equipeById[p.equipeBId!]?.escudoUrl
                 : null,
           ),
         )
         .toList();
 
-    // 5) Filtro "Em andamento" (o back-end valida status exato, então filtramos no app)
+    // 5) Filtro "Em andamento"
     if (_filtro == _FiltroStatus.emAndamento) {
       enriched = enriched.where((p) {
         final st = p.status.trim().toLowerCase();
@@ -92,7 +113,7 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
       }).toList();
     }
 
-    // 6) Ordenação: agendadaPor/iniciadaEm
+    // 6) Ordenação
     enriched.sort((a, b) {
       final da =
           a.agendadoPara ??
@@ -119,7 +140,7 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
       case _FiltroStatus.finalizadas:
         return 'finalizada';
       case _FiltroStatus.emAndamento:
-        return null; // busca todas e filtra
+        return null;
       case _FiltroStatus.todas:
         return null;
     }
@@ -288,6 +309,9 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
           modalidadeId: p.modalidadeId ?? widget.modalidade.id,
           timeA: timeA,
           timeB: timeB,
+          // ✅ Escudos enriquecidos
+          EscudoTimeA: p.equipeAEscudo,
+          EscudoTimeB: p.equipeBEscudo,
           status: p.status,
           placarA: p.placarA.toString(),
           placarB: p.placarB.toString(),
@@ -307,106 +331,208 @@ class _PartidaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeA = partida.equipeANome ?? 'Time A';
     final timeB = partida.equipeBNome ?? 'Time B';
+    final escudoA = partida.equipeAEscudo ?? '';
+    final escudoB = partida.equipeBEscudo ?? '';
 
     final st = partida.status.toUpperCase();
+    final isFinalizada = partida.status.trim().toLowerCase() == 'finalizada';
+    final isAoVivo =
+        partida.status.trim().toLowerCase() != 'agendada' && !isFinalizada;
 
     final dt = partida.iniciadaEm ?? partida.agendadoPara;
     final dtStr = dt != null
         ? DateFormat('dd/MM • HH:mm').format(dt.toLocal())
         : '';
 
+    final badgeColor = isAoVivo
+        ? Colors.green
+        : isFinalizada
+        ? Colors.grey
+        : const Color(0xFFF85C39);
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(22),
+      elevation: 0,
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Badge + data ──────────────────────────────────────────
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: Text(
-                      '$timeA  x  $timeB',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                  if (dtStr.isNotEmpty)
+                    Text(
+                      dtStr,
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ),
-                  ),
+                    )
+                  else
+                    const SizedBox.shrink(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 4,
+                      vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF85C39).withOpacity(0.12),
+                      color: badgeColor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Text(
-                      st,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFF85C39),
-                        letterSpacing: 0.8,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isAoVivo) ...[
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: badgeColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          st,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: badgeColor,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+
+              const SizedBox(height: 14),
+
+              // ── Times + Placar ────────────────────────────────────────
               Row(
                 children: [
-                  Text(
-                    '${partida.placarA} - ${partida.placarB}',
-                    style: const TextStyle(
-                      fontFamily: 'Bebas Neue',
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      color: Color.fromARGB(255, 32, 32, 32),
+                  // Time A
+                  Expanded(
+                    child: _buildTeamBlock(
+                      escudoA,
+                      timeA,
+                      CrossAxisAlignment.start,
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
+
+                  // Placar central
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (dtStr.isNotEmpty)
-                          Text(
-                            dtStr,
-                            style: TextStyle(
-                              color: Colors.grey[700],
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
+                        Text(
+                          '${partida.placarA}  –  ${partida.placarB}',
+                          style: const TextStyle(
+                            fontFamily: 'Bebas Neue',
+                            fontSize: 30,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1A1A1A),
+                            letterSpacing: 2,
                           ),
+                        ),
                         if ((partida.local ?? '').trim().isNotEmpty)
                           Text(
                             partida.local!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
+                              color: Colors.grey[400],
+                              fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Colors.black45),
+
+                  // Time B
+                  Expanded(
+                    child: _buildTeamBlock(
+                      escudoB,
+                      timeB,
+                      CrossAxisAlignment.end,
+                    ),
+                  ),
                 ],
               ),
+
+              const SizedBox(height: 4),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTeamBlock(
+    String url,
+    String nome,
+    CrossAxisAlignment alignment,
+  ) {
+    return Column(
+      crossAxisAlignment: alignment,
+      children: [
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: Colors.grey.shade100,
+          backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+          child: url.isEmpty
+              ? Text(
+                  nome.isNotEmpty ? nome[0] : '?',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                )
+              : null,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          nome,
+          maxLines: 2,
+          textAlign: alignment == CrossAxisAlignment.start
+              ? TextAlign.left
+              : TextAlign.right,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEscudo(String url, String nome) {
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: Colors.grey.shade200,
+      backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+      child: url.isEmpty
+          ? Text(
+              nome.isNotEmpty ? nome[0] : '?',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            )
+          : null,
     );
   }
 }

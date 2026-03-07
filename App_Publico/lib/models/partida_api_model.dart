@@ -14,6 +14,8 @@ class PartidaApi {
   /// Campos enriquecidos (UI)
   final String? equipeANome;
   final String? equipeBNome;
+  final String? equipeAEscudo;
+  final String? equipeBEscudo;
 
   PartidaApi({
     required this.id,
@@ -29,6 +31,8 @@ class PartidaApi {
     this.placarB = 0,
     this.equipeANome,
     this.equipeBNome,
+    this.equipeAEscudo,
+    this.equipeBEscudo,
   });
 
   factory PartidaApi.fromMap(Map<String, dynamic> map) {
@@ -50,6 +54,8 @@ class PartidaApi {
   PartidaApi copyWith({
     String? equipeANome,
     String? equipeBNome,
+    String? equipeAEscudo,
+    String? equipeBEscudo,
   }) {
     return PartidaApi(
       id: id,
@@ -65,6 +71,8 @@ class PartidaApi {
       placarB: placarB,
       equipeANome: equipeANome ?? this.equipeANome,
       equipeBNome: equipeBNome ?? this.equipeBNome,
+      equipeAEscudo: equipeAEscudo ?? this.equipeAEscudo,
+      equipeBEscudo: equipeBEscudo ?? this.equipeBEscudo,
     );
   }
 

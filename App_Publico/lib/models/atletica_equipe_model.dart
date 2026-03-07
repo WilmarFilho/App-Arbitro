@@ -33,6 +33,7 @@ class Equipe {
   final String nome;
   final String atleticaId;
   final String? atleticaNome;
+  final String? atleticaEscudoUrl;
   final String? campeonatoId;
   final String? campeonatoNome;
   final String? modalidadeId;
@@ -44,6 +45,7 @@ class Equipe {
     required this.nome,
     required this.atleticaId,
     this.atleticaNome,
+    this.atleticaEscudoUrl,
     this.campeonatoId,
     this.campeonatoNome,
     this.modalidadeId,
@@ -59,6 +61,7 @@ class Equipe {
       // API: atleticaId | Supabase: atletica_id
       atleticaId: (map['atleticaId'] ?? map['atletica_id'] ?? '').toString(),
       atleticaNome: map['atleticaNome']?.toString(),
+      atleticaEscudoUrl: map['atleticaEscudoUrl']?.toString(),
       campeonatoId: map['campeonatoId']?.toString(),
       campeonatoNome: map['campeonatoNome']?.toString(),
       modalidadeId: map['modalidadeId']?.toString(),
