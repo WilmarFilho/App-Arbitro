@@ -36,6 +36,8 @@ class JogoDetalhesScreen extends StatefulWidget {
 }
 
 class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
+  String _statusAtual = ''; // ← novo
+
   // ── CRONÔMETRO PÚBLICO ──────────────────────────────────────────────
   Timer? _cronometroTicker;
   int _segundosExibidos = 0;
@@ -172,6 +174,12 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       _cronometroRodando = false;
       _cronometroTicker?.cancel();
     } else if (!eventoIndicaPausa && !_cronometroRodando) {
+      // ← NOVO: só religa se o status atual permitir
+      final statusPermiteRodar = _statusRodando.contains(
+        _statusAtual.toLowerCase(),
+      );
+      if (!statusPermiteRodar) return;
+
       // Só religar se o status atual ainda for um status "rodando"
       // (evita religar no intervalo ou fim de partida)
       // _atualizarEstadoCronometro já cuida disso quando o status muda,
@@ -197,6 +205,8 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
 
   /// Liga ou desliga o ticker conforme o status atual da partida
   void _atualizarEstadoCronometro(String status) {
+    _statusAtual = status;
+
     final deveRodar = _statusRodando.contains(status.toLowerCase());
 
     if (deveRodar && !_cronometroRodando) {

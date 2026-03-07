@@ -31,7 +31,8 @@ class PartidaRunningScreen extends StatefulWidget {
   State<PartidaRunningScreen> createState() => _PartidaRunningScreenState();
 }
 
-class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
+class _PartidaRunningScreenState extends State<PartidaRunningScreen>
+    with WidgetsBindingObserver {
   static const int duracaoPrimeiroTempo = 20 * 60; // 1200 segundos
   static const int duracaoSegundoTempo =
       40 * 60; // 2400 segundos (Total acumulado)
@@ -77,13 +78,16 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     _golsA = widget.partida.placarA;
     _golsB = widget.partida.placarB;
     _nomeTimeA = widget.partida.equipeA?.nome ?? "Time A";
     _nomeTimeB = widget.partida.equipeB?.nome ?? "Time B";
     _periodoAtual = _converterStatusParaPeriodo(widget.partida.status);
     if (_periodoAtual != PeriodoPartida.naoIniciada) _partidaJaIniciou = true;
-    _carregarDadosIniciais();
+
+    _carregarDadosIniciais().then((_) => _sincronizarCronometro());
   }
 
   Future<void> _carregarDadosIniciais() async {
@@ -125,11 +129,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         _partidaService.buscarInscritos(widget.partida.equipeAId),
         _partidaService.buscarInscritos(widget.partida.equipeBId),
       ]);
-
-      setState(() {
-        _distribuirJogadores(resultados[0], true);
-        _distribuirJogadores(resultados[1], false);
-      });
+      _distribuirJogadores(resultados[0], true);
+      _distribuirJogadores(resultados[1], false);
     } catch (e) {
       debugPrint("Erro ao carregar atletas: $e");
     }
@@ -288,12 +289,103 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
     _timer?.cancel(); // Limpar timer ao sair da tela
     _timerPausa?.cancel(); // Limpar timer de pausa
     _timerPausaTecnica?.cancel(); // Limpar timer de pausa técnica
     _timerAcrescimo?.cancel(); // Limpar timer do acrescimo
     _timerProrrogacao?.cancel(); // Limpar timer da prorrogação
     super.dispose();
+  }
+
+  @override // ← faltando
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _sincronizarCronometro();
+    }
+  }
+
+  /// Reconstrói o estado do cronômetro a partir do último evento salvo no banco
+  Future<void> _sincronizarCronometro() async {
+    // Só faz sentido sincronizar se a partida já começou
+    if (_periodoAtual == PeriodoPartida.naoIniciada ||
+        _periodoAtual == PeriodoPartida.finalizada)
+      return;
+
+    final ultimoEvento = await _partidaService.buscarUltimoEventoComTempo(
+      widget.partida.id,
+    );
+
+    if (ultimoEvento == null || !mounted) return;
+
+    final int segundosAncora = _parseTempoCronometro(
+      ultimoEvento['tempo_cronometro'].toString(),
+    );
+    final DateTime? timestampAncora = DateTime.tryParse(
+      ultimoEvento['criado_em'].toString(),
+    );
+
+    if (timestampAncora == null) return;
+
+    // Descobre se o último evento indica pausa ou execução
+    final tipoId = ultimoEvento['tipo_evento_id']?.toString() ?? '';
+    final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
+      (e) => e.id == tipoId,
+      orElse: () => TipoEventoEsporte(id: '', nome: '', esporteId: '', idx: 0),
+    );
+    final rawNome = tipoEvento.nome.toUpperCase();
+
+    final eventoIndicaPausa =
+        rawNome.contains('PAUSADA') ||
+        rawNome.contains('PAUSA_TECNICA') ||
+        rawNome.contains('INTERVALO') ||
+        rawNome.contains('FIM_');
+
+    if (eventoIndicaPausa) {
+      // Partida estava pausada: congela no tempo do evento
+      _timer?.cancel();
+      setState(() {
+        _rodando = false;
+        _segundos = segundosAncora;
+      });
+    } else {
+      // Partida estava rodando: recalcula o tempo considerando o tempo passado
+      final segundosDecorridos = DateTime.now()
+          .toUtc()
+          .difference(timestampAncora.toUtc())
+          .inSeconds;
+
+      final segundosRecuperados = segundosAncora + segundosDecorridos;
+
+      _timer?.cancel();
+      _timerPausa?.cancel(); // ← novo
+      setState(() {
+        _rodando = true;
+        _segundos = segundosRecuperados;
+        _partidaJaIniciou = true; // ← novo
+      });
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted) {
+          setState(() => _segundos++); // só incrementa
+          _verificarFimPeriodo(); // fora do setState
+        }
+      });
+    }
+
+    debugPrint(
+      '⏱ Cronômetro sincronizado: ${_formatarTempo(_segundos)} '
+      '(${eventoIndicaPausa ? "pausado" : "rodando"})',
+    );
+  }
+
+  /// Converte "MM:SS" → total em segundos
+  int _parseTempoCronometro(String tempo) {
+    final partes = tempo.split(':');
+    if (partes.length != 2) return 0;
+    final min = int.tryParse(partes[0]) ?? 0;
+    final seg = int.tryParse(partes[1]) ?? 0;
+    return min * 60 + seg;
   }
 
   // Verifica se deve finalizar período automaticamente
@@ -372,22 +464,22 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   void _iniciarAcrescimo() {
     _timer?.cancel(); // Cancela qualquer timer ativo
 
+    final novoTempoAcrescimo =
+        _segundos + _tempoAcrescimo; // captura o valor atual
+
     setState(() {
       _periodoAntesDoAcrescimo = _periodoAtual;
       _rodando = true;
       _estaNoAcrescimo = true;
       _periodoAtual = PeriodoPartida.acrescimo;
-
-      _tempoAcrescimo = _segundos + _tempoAcrescimo;
+      _tempoAcrescimo = novoTempoAcrescimo;
     });
 
     // Inicia o contador
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        setState(() {
-          _segundos++;
-          _verificarFimPeriodo(); // Esta função vai travar o tempo quando chegar no limite
-        });
+        setState(() => _segundos++); // só incrementa
+        _verificarFimPeriodo(); // fora do setState
       }
     });
 
@@ -404,20 +496,20 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     _timer?.cancel();
     _timerPausa?.cancel();
 
+    // ✅ Só estado síncrono dentro do setState
     setState(() {
       _rodando = false;
       _periodoAtual = PeriodoPartida.intervalo;
-
-      _partidaService.atualizarPartida(
-        widget.partida.id,
-        novoStatus: 'intervalo',
-      );
-
       _temAcrescimo = false;
       _tempoAcrescimo = 0;
       _estaNoAcrescimo = false;
     });
 
+    // ✅ Side effects fora
+    _partidaService.atualizarPartida(
+      widget.partida.id,
+      novoStatus: 'intervalo',
+    );
     _registrarEventoSistemico('FIM_1_TEMPO');
     _registrarEventoSistemico('INTERVALO');
   }
@@ -670,13 +762,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     // Timer de 1 minuto (60 segundos) para pausa técnica
     _timerPausaTecnica = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        // Verificação para evitar erros se a tela for fechada
-        setState(() {
-          _segundosPausaTecnica++;
-          if (_segundosPausaTecnica >= 60) {
-            _finalizarPausaTecnica();
-          }
-        });
+        setState(() => _segundosPausaTecnica++); // só incrementa
+        if (_segundosPausaTecnica >= 60) {
+          _finalizarPausaTecnica(); // fora do setState
+        }
       }
     });
   }
@@ -750,10 +839,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
     if (novoRodando) {
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (mounted) {
-          setState(() {
-            _segundos++;
-            _verificarFimPeriodo();
-          });
+          setState(() => _segundos++); // só incrementa
+          _verificarFimPeriodo(); // fora do setState
         }
       });
       _timerPausa?.cancel();
@@ -1491,24 +1578,31 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   }
 
   void _confirmarSubstituicao(Atleta saindo, Atleta entrando) {
+    final isA = _jogadoresA.contains(saindo);
+    final listTitulares = isA ? _jogadoresA : _jogadoresB;
+    final listReservas = isA ? _reservasA : _reservasB;
+    final equipeIdCorreta = isA
+        ? widget.partida.equipeAId
+        : widget.partida.equipeBId;
+
+    // Busca o tipo ANTES do setState
+    final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
+      (e) => e.nome.toUpperCase() == 'SUBSTITUIÇÃO',
+      orElse: () => TipoEventoEsporte(
+        id: '',
+        nome: 'SUBSTITUIÇÃO',
+        esporteId: '',
+        idx: 0,
+      ),
+    );
+
+    // ✅ Só mutações de estado dentro do setState
     setState(() {
-      final isA = _jogadoresA.contains(saindo);
-      final listTitulares = isA ? _jogadoresA : _jogadoresB;
-      final listReservas = isA ? _reservasA : _reservasB;
-
-      // Define a equipeId correta baseada em qual lista o jogador saindo está
-      final equipeIdCorreta = isA
-          ? widget.partida.equipeAId
-          : widget.partida.equipeBId;
-
-      debugPrint("TTT equipeId identificado: $equipeIdCorreta");
-
-      // 1. Substitui o titular
       int idx = listTitulares.indexOf(saindo);
       listTitulares[idx] = Atleta(
         id: entrando.id,
         atletaId: entrando.atletaId,
-        equipeId: equipeIdCorreta, // Garante o ID da equipe
+        equipeId: equipeIdCorreta,
         ativo: true,
         numero: entrando.numero,
         nome: entrando.nome,
@@ -1516,13 +1610,12 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         posicao: saindo.posicao,
       );
 
-      // 2. Remove da lista de reservas e adiciona o que saiu
       listReservas.remove(entrando);
       listReservas.add(
         Atleta(
           id: saindo.id,
           atletaId: saindo.atletaId,
-          equipeId: equipeIdCorreta, // Garante o ID da equipe
+          equipeId: equipeIdCorreta,
           ativo: false,
           numero: saindo.numero,
           nome: saindo.nome,
@@ -1531,7 +1624,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         ),
       );
 
-      // 3. Registro visual no feed
       _eventosPartida.insert(
         0,
         EventoPartida(
@@ -1543,40 +1635,28 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
         ),
       );
 
-      // 4. Busca o tipo de evento correto
-      final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
-        (e) => e.nome.toUpperCase() == 'SUBSTITUIÇÃO',
-        orElse: () => TipoEventoEsporte(
-          id: '',
-          nome: 'SUBSTITUIÇÃO',
-          esporteId: '',
-          idx: 0,
-        ),
-      );
-
-      // 5. Persistência no banco com equipeId garantido
-      _partidaService.salvarEvento(
-        partidaId: widget.partida.id,
-        tipoEventoId: tipoEvento.id,
-        tempoFormatado: _formatarTempo(_segundos),
-        atletaId: entrando.atletaId,
-        atletaSaiId: saindo.atletaId,
-        equipeId: equipeIdCorreta, // Valor validado aqui
-        isSubstitution: true,
-      );
-
-      // 6. Feedback e Limpeza
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Substituição: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})",
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
       _jogadorSelecionado = null;
     });
+
+    // ✅ Side effects fora
+    _partidaService.salvarEvento(
+      partidaId: widget.partida.id,
+      tipoEventoId: tipoEvento.id,
+      tempoFormatado: _formatarTempo(_segundos),
+      atletaId: entrando.atletaId,
+      atletaSaiId: saindo.atletaId,
+      equipeId: equipeIdCorreta,
+      isSubstitution: true,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Substituição: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})",
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 }

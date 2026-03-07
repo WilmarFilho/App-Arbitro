@@ -319,6 +319,26 @@ class PartidaService {
     return [];
   }
 
+  Future<Map<String, dynamic>?> buscarUltimoEventoComTempo(
+    String partidaId,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('eventos_partida')
+          .select('tempo_cronometro, criado_em, tipo_evento_id')
+          .eq('partida_id', partidaId)
+          .not('tempo_cronometro', 'is', null)
+          .isFilter('atleta_id', null) // ← NOVO
+          .order('criado_em', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      debugPrint('Erro ao buscar último evento: $e');
+      return null;
+    }
+  } 
+
   Future<List<Arbitro>> listarTodosArbitros() async {
     try {
       final response = await _dio.get('/arbitros');
