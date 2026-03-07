@@ -204,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
 
     return SizedBox(
-      height: 165,
+      height: 185,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -308,8 +308,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         builder: (_) => JogoDetalhesScreen(
           partidaId: partida.id,
           modalidadeId: partida.modalidadeId,
-          timeA: partida.equipeA?.atletica?.nome ?? "Time A",
-          timeB: partida.equipeB?.atletica?.nome ?? "Time B",
+          timeA: partida.equipeA?.nome ?? "Time A",
+          timeB: partida.equipeB?.nome ?? "Time B",
           EscudoTimeA: partida.equipeA?.atletica?.escudoUrl ?? "",
           EscudoTimeB: partida.equipeB?.atletica?.escudoUrl ?? "",
           status: partida.status.toUpperCase(),

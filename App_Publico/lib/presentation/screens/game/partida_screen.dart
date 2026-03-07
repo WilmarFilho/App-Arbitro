@@ -262,14 +262,19 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          width: 80,
+          width: 120,
           child: Text(
             nome,
             textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 3, // Permite até 2 linhas
+            softWrap: true, // Habilita a quebra automática
+            overflow:
+                TextOverflow.ellipsis, // Adiciona "..." se passar de 2 linhas
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
+              height:
+                  1.1, // Ajuste opcional para aproximar as linhas e economizar espaço
             ),
           ),
         ),

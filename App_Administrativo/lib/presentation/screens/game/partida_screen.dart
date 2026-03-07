@@ -696,60 +696,82 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen> {
   }
 
   void _alternarCronometro() {
-    setState(() {
-      _rodando = !_rodando;
+    // ✅ 1. Decide o que vai acontecer ANTES do setState
+    final bool novoRodando = !_rodando;
+    String? eventoParaRegistrar;
+    VoidCallback? atualizarServico;
 
-      if (_rodando) {
+    if (novoRodando) {
+      switch (_periodoAtual) {
+        case PeriodoPartida.naoIniciada:
+          eventoParaRegistrar = 'INICIO_1_TEMPO';
+          atualizarServico = () => _partidaService.atualizarPartida(
+            widget.partida.id,
+            novoStatus: '1° tempo',
+          );
+          break;
+        case PeriodoPartida.intervalo:
+          eventoParaRegistrar = 'INICIO_2_TEMPO';
+          atualizarServico = () => _partidaService.atualizarPartida(
+            widget.partida.id,
+            novoStatus: '2° tempo',
+          );
+          break;
+        default:
+          eventoParaRegistrar = 'PARTIDA_RETOMADA';
+          break;
+      }
+    } else {
+      if (_periodoAtual != PeriodoPartida.finalizada && !_emPausaTecnica) {
+        eventoParaRegistrar = 'PARTIDA_PAUSADA';
+      }
+    }
+
+    // ✅ 2. setState com APENAS mutações síncronas (sem async, sem timers, sem serviços)
+    setState(() {
+      _rodando = novoRodando;
+      if (novoRodando) {
         switch (_periodoAtual) {
           case PeriodoPartida.naoIniciada:
             _periodoAtual = PeriodoPartida.primeiroTempo;
             _segundos = 0;
-            _registrarEventoSistemico('INICIO_1_TEMPO');
-
-            _partidaService.atualizarPartida(
-              widget.partida.id,
-              novoStatus: '1° tempo',
-            );
-
             break;
-
           case PeriodoPartida.intervalo:
             _periodoAtual = PeriodoPartida.segundoTempo;
             _segundos = duracaoPrimeiroTempo;
-            _registrarEventoSistemico('INICIO_2_TEMPO');
-
-            _partidaService.atualizarPartida(
-              widget.partida.id,
-              novoStatus: '2° tempo',
-            );
-
             break;
-
           default:
-            _registrarEventoSistemico('PARTIDA_RETOMADA');
             break;
-        }
-
-        _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          if (mounted) {
-            setState(() {
-              _segundos++;
-              _verificarFimPeriodo();
-            });
-          }
-        });
-        _timerPausa?.cancel();
-        _partidaJaIniciou = true;
-      } else {
-        _timer?.cancel();
-        if (_periodoAtual != PeriodoPartida.finalizada && !_emPausaTecnica) {
-          _timerPausa = Timer.periodic(const Duration(seconds: 1), (timer) {
-            if (mounted) setState(() => _segundosPausa++);
-          });
-          _registrarEventoSistemico('PARTIDA_PAUSADA');
         }
       }
     });
+
+    // ✅ 3. Side effects FORA do setState
+    if (novoRodando) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted) {
+          setState(() {
+            _segundos++;
+            _verificarFimPeriodo();
+          });
+        }
+      });
+      _timerPausa?.cancel();
+      _partidaJaIniciou = true;
+      atualizarServico?.call();
+    } else {
+      _timer?.cancel();
+      if (_periodoAtual != PeriodoPartida.finalizada && !_emPausaTecnica) {
+        _timerPausa = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (mounted) setState(() => _segundosPausa++);
+        });
+      }
+    }
+
+    // ✅ Evento registrado UMA única vez, fora do setState
+    if (eventoParaRegistrar != null) {
+      _registrarEventoSistemico(eventoParaRegistrar);
+    }
   }
 
   // Função para contar estatísticas do jogador em tempo real
