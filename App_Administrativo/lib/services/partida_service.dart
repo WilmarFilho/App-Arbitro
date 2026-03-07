@@ -337,7 +337,7 @@ class PartidaService {
       debugPrint('Erro ao buscar último evento: $e');
       return null;
     }
-  } 
+  }
 
   Future<List<Arbitro>> listarTodosArbitros() async {
     try {
@@ -411,6 +411,18 @@ class PartidaService {
   }
 
   // --- MÉTODOS DE ATUALIZAÇÃO ---
+
+  // No partido_service.dart ou evento_service.dart
+  Future<List<Map<String, dynamic>>> buscarEventosDaPartida(
+    String partidaId,
+  ) async {
+    final response = await _supabase
+        .from('eventos_partida')
+        .select('*, tipo_evento:tipo_evento_id(*)')
+        .eq('partida_id', partidaId)
+        .order('criado_em', ascending: true);
+    return List<Map<String, dynamic>>.from(response);
+  }
 
   Future<void> atualizarPartida(String partidaId, {String? novoStatus}) async {
     final status = novoStatus?.trim();

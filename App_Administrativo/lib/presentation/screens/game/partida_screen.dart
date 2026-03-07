@@ -1297,6 +1297,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                                                 golsA: _golsA,
                                                 golsB: _golsB,
                                                 eventos: _eventosPartida,
+                                                partidaId: widget.partida.id,
                                               ),
                                         ),
                                       );
