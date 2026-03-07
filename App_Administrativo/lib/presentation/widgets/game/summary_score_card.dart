@@ -49,9 +49,15 @@ class SummaryScoreCard extends StatelessWidget {
   Widget _timeColumn(String nome, int gols, Color cor) {
     return Column(
       children: [
-        Text(
-          nome,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        SizedBox(
+          width: 110,
+          child: Text(
+            nome,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
         ),
         Text(
           gols.toString().padLeft(2, '0'),
