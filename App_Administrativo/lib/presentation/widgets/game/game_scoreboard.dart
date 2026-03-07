@@ -5,6 +5,8 @@ import '../../screens/game/partida_screen.dart';
 class GameScoreboard extends StatelessWidget {
   final String timeA;
   final String timeB;
+  final String? escudoA;
+  final String? escudoB;
   final int golsA;
   final int golsB;
   final PeriodoPartida periodoAtual;
@@ -20,6 +22,8 @@ class GameScoreboard extends StatelessWidget {
     super.key,
     required this.timeA,
     required this.timeB,
+    required this.escudoA,
+    required this.escudoB,
     required this.golsA,
     required this.golsB,
     required this.periodoAtual,
@@ -43,52 +47,61 @@ class GameScoreboard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          // Envolvemos cada coluna com Expanded para dividirem o espaço igualmente
-          Expanded(child: _buildTeamScore(timeA, Icons.laptop, golsA, true)),
-
+          Expanded(child: _buildTeamScore(timeA, golsA, true)),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 10),
             width: 2,
             height: 80,
             color: Colors.grey[200],
           ),
-
-          Expanded(
-            child: _buildTeamScore(timeB, Icons.add_moderator, golsB, false),
-          ),
+          Expanded(child: _buildTeamScore(timeB, golsB, false)),
         ],
       ),
     );
   }
 
-  Widget _buildTeamScore(String nome, IconData icon, int gols, bool isTimeA) {
-    bool podeUsarPausa =
+  Widget _buildTeamScore(String nome, int gols, bool isTimeA) {
+    final bool podeUsarPausa =
         rodando &&
         podeUsarPausaTecnica(isTimeA) &&
         (periodoAtual == PeriodoPartida.primeiroTempo ||
             periodoAtual == PeriodoPartida.segundoTempo ||
             periodoAtual == PeriodoPartida.prorrogacao);
 
+    final String logoUrl = (isTimeA ? escudoA : escudoB) ?? '';
+
     return Column(
-      mainAxisSize: MainAxisSize
-          .min, // Garante que a coluna não ocupe espaço desnecessário
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           nome,
           maxLines: 2,
           softWrap: true,
-          textAlign:
-              TextAlign.center, // Centraliza o nome caso ele quebre linha
+          textAlign: TextAlign.center,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
-            letterSpacing:
-                1.2, // Reduzi levemente o espaçamento para ajudar no encaixe
-            fontSize:
-                18, // Reduzi de 22 para 18 para comportar melhor nomes longos em 2 linhas
+            letterSpacing: 1.2,
+            fontSize: 18,
           ),
         ),
         const SizedBox(height: 8),
-        Icon(icon, size: 30),
+
+        // ✅ Trata escudo vazio: mostra inicial do time se não tiver URL
+        CircleAvatar(
+          radius: 40,
+          backgroundColor: Colors.grey.shade200,
+          backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+          child: logoUrl.isEmpty
+              ? Text(
+                  nome.isNotEmpty ? nome[0] : '?',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                )
+              : null,
+        ),
+
         const SizedBox(height: 8),
         Text(
           gols.toString().padLeft(2, '0'),
@@ -100,7 +113,7 @@ class GameScoreboard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
 
-        // 1. Botão de solicitar pausa (Só aparece se rodando e tiver direito)
+        // 1. Botão de solicitar pausa
         if (podeUsarPausa && !emPausaTecnica)
           GestureDetector(
             onTap: () => onPausaTecnicaIniciada(isTimeA),
@@ -120,7 +133,7 @@ class GameScoreboard extends StatelessWidget {
               ),
             ),
           )
-        // 2. Botão de finalizar pausa (Aparece se já estiver em pausa)
+        // 2. Botão de finalizar pausa
         else if (emPausaTecnica && timeEmPausaTecnica == nome)
           GestureDetector(
             onTap: onPausaTecnicaFinalizada,
@@ -140,8 +153,7 @@ class GameScoreboard extends StatelessWidget {
               ),
             ),
           )
-        // 3. Indicador de Pausa Esgotada (Só aparece se o cronômetro estiver rodando ou
-        // em período de jogo, mas o time já usou o seu direito)
+        // 3. Indicador de pausa esgotada
         else if (!podeUsarPausa &&
             rodando &&
             (periodoAtual == PeriodoPartida.primeiroTempo ||
@@ -162,7 +174,7 @@ class GameScoreboard extends StatelessWidget {
               ),
             ),
           )
-        // 4. Espaçador caso não cumpra nenhuma condição (Partida pausada ou intervalo)
+        // 4. Espaçador
         else
           const SizedBox(height: 20),
       ],

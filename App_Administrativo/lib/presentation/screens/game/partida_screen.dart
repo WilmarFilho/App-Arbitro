@@ -152,10 +152,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
 
       if (atleta.ativo) {
         titulares.add(atleta);
-        debugPrint("TTT titulares: ${atleta.equipeId} - ${atleta.nome}");
       } else {
         reservas.add(atleta);
-        debugPrint("TTT reservas: ${atleta.equipeId} - ${atleta.nome}");
       }
     }
 
@@ -193,9 +191,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     for (int i = 0; i < jogadores.length; i++) {
       if (i < listaPosicoes.length) {
         jogadores[i].posicao = listaPosicoes[i];
-        debugPrint(
-          "Posição do jogador ${jogadores[i].nome}: ${jogadores[i].posicao}",
-        );
       }
     }
   }
@@ -372,11 +367,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
         }
       });
     }
-
-    debugPrint(
-      '⏱ Cronômetro sincronizado: ${_formatarTempo(_segundos)} '
-      '(${eventoIndicaPausa ? "pausado" : "rodando"})',
-    );
   }
 
   /// Converte "MM:SS" → total em segundos
@@ -1213,6 +1203,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                               GameScoreboard(
                                 timeA: _nomeTimeA,
                                 timeB: _nomeTimeB,
+                                escudoA:
+                                    widget.partida.equipeA?.atleticaEscudoUrl,
+                                escudoB:
+                                    widget.partida.equipeB?.atleticaEscudoUrl,
                                 golsA: _golsA,
                                 golsB: _golsB,
                                 periodoAtual: _periodoAtual,
@@ -1294,6 +1288,14 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                                               MatchSummaryScreen(
                                                 timeA: _nomeTimeA,
                                                 timeB: _nomeTimeB,
+                                                escudoA: widget
+                                                    .partida
+                                                    .equipeA
+                                                    ?.atleticaEscudoUrl,
+                                                escudoB: widget
+                                                    .partida
+                                                    .equipeB
+                                                    ?.atleticaEscudoUrl,
                                                 golsA: _golsA,
                                                 golsB: _golsB,
                                                 eventos: _eventosPartida,

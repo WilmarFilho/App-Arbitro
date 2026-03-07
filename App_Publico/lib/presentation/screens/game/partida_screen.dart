@@ -567,8 +567,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     );
     final String rawNome = (tipoData['nome']?.toString() ?? '').toUpperCase();
 
-    debugPrint('rawNome: $rawNome');
-
     IconData iconData = Icons.info_outline;
     Color iconColor = Colors.grey;
 
@@ -671,7 +669,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                           future: _buildEventDescription(ev),
                           builder: (context, snap) {
                             final desc = snap.data ?? '';
-                            debugPrint('desc: $desc');
+                  
                             // Remove o friendlyName do início pois já mostramos acima
                             final cleanDesc = desc.startsWith(friendlyName)
                                 ? desc

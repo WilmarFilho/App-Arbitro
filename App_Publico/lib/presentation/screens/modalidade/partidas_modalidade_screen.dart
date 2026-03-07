@@ -64,7 +64,6 @@ class _PartidasModalidadeScreenState extends State<PartidasModalidadeScreen> {
         final equipe = await _service.buscarEquipePorId(id);
         if (equipe != null && equipe.id.isNotEmpty) {
           nomesEquipes[equipe.id] = equipe.nome;
-          debugPrint('Equipe: ${equipe.nome}');
         }
       }),
     );

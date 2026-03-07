@@ -15,11 +15,15 @@ class MatchSummaryScreen extends StatefulWidget {
   final int golsB;
   final List<dynamic> eventos;
   final String? partidaId; // ← novo, opcional para busca retroativa
+  final String? escudoA;
+  final String? escudoB;
 
   const MatchSummaryScreen({
     super.key,
     required this.timeA,
     required this.timeB,
+    this.escudoA,
+    this.escudoB,
     required this.golsA,
     required this.golsB,
     this.eventos = const [],
@@ -94,6 +98,8 @@ class _MatchSummaryScreenState extends State<MatchSummaryScreen> {
                   SummaryScoreCard(
                     timeA: widget.timeA,
                     timeB: widget.timeB,
+                    escudoA: widget.escudoA,
+                    escudoB: widget.escudoB,
                     golsA: widget.golsA,
                     golsB: widget.golsB,
                   ),

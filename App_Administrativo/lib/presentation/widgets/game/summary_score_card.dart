@@ -6,6 +6,8 @@ class SummaryScoreCard extends StatelessWidget {
   final String timeB;
   final int golsA;
   final int golsB;
+  final String? escudoA;
+  final String? escudoB;
 
   const SummaryScoreCard({
     super.key,
@@ -13,6 +15,8 @@ class SummaryScoreCard extends StatelessWidget {
     required this.timeB,
     required this.golsA,
     required this.golsB,
+    this.escudoA,
+    this.escudoB,
   });
 
   @override
@@ -35,18 +39,20 @@ class SummaryScoreCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _timeColumn(timeA, golsA, Colors.orange),
+          _timeColumn(timeA, golsA, Colors.orange, escudoA),
           const Text(
             "VS",
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
           ),
-          _timeColumn(timeB, golsB, Colors.blue),
+          _timeColumn(timeB, golsB, Colors.blue, escudoB),
         ],
       ),
     );
   }
 
-  Widget _timeColumn(String nome, int gols, Color cor) {
+  Widget _timeColumn(String nome, int gols, Color cor, String? escudo) {
+    final String logoUrl = escudo ?? '';
+
     return Column(
       children: [
         SizedBox(
@@ -59,6 +65,23 @@ class SummaryScoreCard extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
         ),
+        const SizedBox(height: 8),
+        CircleAvatar(
+          radius: 35,
+          backgroundColor: Colors.grey.shade200,
+          backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+          child: logoUrl.isEmpty
+              ? Text(
+                  nome.isNotEmpty ? nome[0] : '?',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                    color: Colors.grey,
+                  ),
+                )
+              : null,
+        ),
+        const SizedBox(height: 8),
         Text(
           gols.toString().padLeft(2, '0'),
           style: TextStyle(

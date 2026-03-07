@@ -80,7 +80,7 @@ class PartidaCard extends StatelessWidget {
                   children: [
                     _buildTeamInfo(
                       partida.equipeA?.nome ?? "Time A",
-                      partida.equipeA?.atletica?.escudoUrl,
+                      partida.equipeA?.atleticaEscudoUrl,
                     ),
 
                     // Placar Central
@@ -109,7 +109,7 @@ class PartidaCard extends StatelessWidget {
 
                     _buildTeamInfo(
                       partida.equipeB?.nome ?? "Time B",
-                      partida.equipeB?.atletica?.escudoUrl,
+                      partida.equipeB?.atleticaEscudoUrl,
                     ),
                   ],
                 ),

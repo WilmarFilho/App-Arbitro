@@ -30,6 +30,7 @@ class Atletica {
 class Equipe {
   final String id;
   final String nome;
+  final String atleticaEscudoUrl;
   final String atleticaId;
   final Atletica?
   atletica; // Relacionamento para facilitar o acesso ao escudo/cor
@@ -37,6 +38,7 @@ class Equipe {
   Equipe({
     required this.id,
     required this.nome,
+    required this.atleticaEscudoUrl,
     required this.atleticaId,
     this.atletica,
   });
@@ -46,6 +48,7 @@ class Equipe {
       id: map['id'] ?? '',
       // No seu JSON a chave é "nomeEquipe" e não "nome"
       nome: map['nomeEquipe'] ?? 'Time Desconhecido',
+      atleticaEscudoUrl: map['atleticaEscudoUrl'],
       atleticaId: map['atleticaId'] ?? '',
     );
   }
