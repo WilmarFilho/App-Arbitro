@@ -24,7 +24,7 @@ class PartidaCard extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 280,
+            width: 290,
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(

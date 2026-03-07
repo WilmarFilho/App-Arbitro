@@ -73,14 +73,14 @@ class PartidaListItem extends StatelessWidget {
               child: Column(
                 children: [
                   _buildTeamRow(
-                    partida.equipeA?.atletica?.nome ?? 'Time A',
+                    partida.equipeA?.nome ?? 'Time A',
                     partida.equipeA?.atletica?.escudoUrl,
                     partida.placarA,
                     venceu: partida.placarA > partida.placarB,
                   ),
                   const SizedBox(height: 8),
                   _buildTeamRow(
-                    partida.equipeB?.atletica?.nome ?? 'Time B',
+                    partida.equipeB?.nome ?? 'Time B',
                     partida.equipeB?.atletica?.escudoUrl,
                     partida.placarB,
                     venceu: partida.placarB > partida.placarA,

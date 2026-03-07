@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/evento_service.dart';
@@ -5,6 +7,7 @@ import '../../../services/firebase_messaging_service.dart';
 
 class JogoDetalhesScreen extends StatefulWidget {
   final String partidaId;
+  final DateTime? iniciadaEm;
   final String modalidadeId;
   final String timeA;
   final String timeB;
@@ -17,6 +20,7 @@ class JogoDetalhesScreen extends StatefulWidget {
   const JogoDetalhesScreen({
     super.key,
     required this.partidaId,
+    this.iniciadaEm,
     required this.modalidadeId,
     required this.timeA,
     required this.timeB,
@@ -32,6 +36,16 @@ class JogoDetalhesScreen extends StatefulWidget {
 }
 
 class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
+  // ── CRONÔMETRO PÚBLICO ──────────────────────────────────────────────
+  Timer? _cronometroTicker;
+  int _segundosExibidos = 0;
+  bool _cronometroRodando = false;
+
+  // Âncora do último evento confiável
+  int _segundosAncora = 0; // tempo_cronometro do último evento (em segundos)
+  DateTime? _timestampAncora; // criado_em do último evento
+  // ────────────────────────────────────────────────────────────────────
+
   final SupabaseClient supabase = Supabase.instance.client;
   final EventoService _eventoService = EventoService();
 
@@ -45,10 +59,10 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   final Map<String, String> _atletaNomeCache = {};
 
   @override
+  @override
   void initState() {
     super.initState();
 
-    // 1. Stream da Partida (para o Placar em tempo real)
     _partidaStream = supabase
         .from('partidas')
         .stream(primaryKey: ['id'])
@@ -56,14 +70,12 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         .limit(1)
         .map((data) => data.first);
 
-    // 2. Stream dos Eventos (Linha do tempo)
     _eventosStream = supabase
         .from('eventos_partida')
         .stream(primaryKey: ['id'])
         .eq('partida_id', widget.partidaId)
         .order('criado_em', ascending: false);
 
-    // 3. Cache dos tipos de eventos
     _futureTipos = _eventoService
         .buscarTiposPorPartida(widget.modalidadeId)
         .then((tipos) {
@@ -71,12 +83,24 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
           return tipos;
         });
 
-    // 4. Se inscrever no tópico dessa partida para receber push notifications
     FirebaseMessagingService().subscribeToPartidaTopic(widget.partidaId);
+
+    // Escuta eventos para atualizar âncora do cronômetro
+    _eventosStream.listen((eventos) {
+      if (!mounted) return;
+      _atualizarAncora(eventos);
+    });
+
+    // Escuta status da partida para ligar/desligar o ticker
+    _partidaStream.listen((dados) {
+      if (!mounted) return;
+      _atualizarEstadoCronometro(dados['status']?.toString() ?? '');
+    });
   }
 
   @override
   void dispose() {
+    _cronometroTicker?.cancel();
     super.dispose();
   }
 
@@ -88,6 +112,132 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     );
     final rawName = tipoData['nome']?.toString() ?? 'Evento';
     return EventoService.friendly(rawName);
+  }
+
+  // Statuses que significam que o relógio está correndo
+  static const _statusRodando = {
+    '1° tempo',
+    '2° tempo',
+    'acréscimo',
+    'prorrogação',
+  };
+
+  /// Lê o último evento e atualiza a âncora (segundosAncora + timestampAncora)
+  void _atualizarAncora(List<Map<String, dynamic>> eventos) {
+    final eventoAncora = eventos.firstWhere(
+      (e) => e['tempo_cronometro'] != null && e['criado_em'] != null,
+      orElse: () => {},
+    );
+
+    if (eventoAncora.isEmpty) return;
+
+    final novaAncora = _parseTempoCronometro(
+      eventoAncora['tempo_cronometro'].toString(),
+    );
+    final novoTimestamp = DateTime.tryParse(
+      eventoAncora['criado_em'].toString(),
+    );
+
+    if (novoTimestamp == null) return;
+
+    // ── NOVO: descobre o tipo do evento mais recente ──────────────────
+    final tipoId = eventoAncora['tipo_evento_id']?.toString();
+    final tipoData = _tiposEventosCache.firstWhere(
+      (t) => t['id'] == tipoId,
+      orElse: () => {'nome': ''},
+    );
+    final rawNome = (tipoData['nome']?.toString() ?? '').toUpperCase();
+    final eventoIndicaPausa =
+        rawNome.contains('PAUSADA') ||
+        rawNome.contains('PAUSA_TECNICA') ||
+        rawNome.contains('INTERVALO') ||
+        rawNome.contains('FIM_');
+    // ─────────────────────────────────────────────────────────────────
+
+    setState(() {
+      _segundosAncora = novaAncora;
+      _timestampAncora = novoTimestamp;
+
+      if (_cronometroRodando && !eventoIndicaPausa) {
+        _segundosExibidos =
+            novaAncora +
+            DateTime.now().toUtc().difference(novoTimestamp.toUtc()).inSeconds;
+      } else {
+        _segundosExibidos = novaAncora;
+      }
+    });
+
+    // ── NOVO: pausa/retoma o ticker baseado no último evento ──────────
+    if (eventoIndicaPausa && _cronometroRodando) {
+      _cronometroRodando = false;
+      _cronometroTicker?.cancel();
+    } else if (!eventoIndicaPausa && !_cronometroRodando) {
+      // Só religar se o status atual ainda for um status "rodando"
+      // (evita religar no intervalo ou fim de partida)
+      // _atualizarEstadoCronometro já cuida disso quando o status muda,
+      // mas chamamos aqui para o caso de retomada via evento
+      _cronometroRodando = true;
+      _cronometroTicker?.cancel();
+      _cronometroTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        if (_timestampAncora != null) {
+          setState(() {
+            _segundosExibidos =
+                _segundosAncora +
+                DateTime.now()
+                    .toUtc()
+                    .difference(_timestampAncora!.toUtc())
+                    .inSeconds;
+          });
+        }
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────
+  }
+
+  /// Liga ou desliga o ticker conforme o status atual da partida
+  void _atualizarEstadoCronometro(String status) {
+    final deveRodar = _statusRodando.contains(status.toLowerCase());
+
+    if (deveRodar && !_cronometroRodando) {
+      // Liga o ticker
+      _cronometroRodando = true;
+      _cronometroTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        if (_timestampAncora != null) {
+          setState(() {
+            _segundosExibidos =
+                _segundosAncora +
+                DateTime.now()
+                    .toUtc()
+                    .difference(_timestampAncora!.toUtc())
+                    .inSeconds;
+          });
+        }
+      });
+    } else if (!deveRodar && _cronometroRodando) {
+      // Desliga o ticker — congela no valor da âncora
+      _cronometroRodando = false;
+      _cronometroTicker?.cancel();
+      setState(() => _segundosExibidos = _segundosAncora);
+    }
+  }
+
+  /// Converte "MM:SS" → total em segundos
+  int _parseTempoCronometro(String tempo) {
+    final partes = tempo.split(':');
+    if (partes.length != 2) return 0;
+    final min = int.tryParse(partes[0]) ?? 0;
+    final seg = int.tryParse(partes[1]) ?? 0;
+    return min * 60 + seg;
+  }
+
+  /// Converte segundos → "MM:SS" para exibição
+  String _formatarCronometroPublico(int totalSegundos) {
+    final s = totalSegundos.clamp(0, 99 * 60 + 59);
+    final min = s ~/ 60;
+    final seg = s % 60;
+    return "${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')}";
   }
 
   /// Busca e retorna o nome do atleta, usando cache local
@@ -208,6 +358,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
           _buildTeamBadge(widget.timeA, widget.EscudoTimeA),
           Column(
             children: [
+              // Placar
               Text(
                 "$placarA - $placarB",
                 style: const TextStyle(
@@ -216,6 +367,8 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                   color: Colors.white,
                 ),
               ),
+
+              // Badge de status
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -233,7 +386,47 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                     fontSize: 12,
                   ),
                 ),
+              ), // ← Container fecha AQUI
+              // Cronômetro — irmão na Column, não dentro do Container acima
+              const SizedBox(height: 8),
+              Text(
+                _formatarCronometroPublico(_segundosExibidos),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: _cronometroRodando ? Colors.white : Colors.white54,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  letterSpacing: 2,
+                ),
               ),
+
+              // Indicador "● AO VIVO" — só aparece quando rodando
+              if (_cronometroRodando) ...[
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      "AO VIVO",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
           _buildTeamBadge(widget.timeB, widget.EscudoTimeB),
@@ -262,7 +455,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          width: 120,
+          width: 100,
           child: Text(
             nome,
             textAlign: TextAlign.center,

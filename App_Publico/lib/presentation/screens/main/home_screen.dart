@@ -307,6 +307,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       MaterialPageRoute(
         builder: (_) => JogoDetalhesScreen(
           partidaId: partida.id,
+          iniciadaEm: partida.iniciadaEm,
           modalidadeId: partida.modalidadeId,
           timeA: partida.equipeA?.nome ?? "Time A",
           timeB: partida.equipeB?.nome ?? "Time B",
