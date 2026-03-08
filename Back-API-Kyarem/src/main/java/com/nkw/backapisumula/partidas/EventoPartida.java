@@ -49,6 +49,12 @@ public class EventoPartida {
     @Column(name = "criado_em", insertable = false, updatable = false)
     private OffsetDateTime criadoEm;
 
+    @Column(name = "local_evento_id", unique = true, nullable = true)
+    private String localEventoId;
+
+    public String getLocalEventoId() { return localEventoId; }
+    public void setLocalEventoId(String localEventoId) { this.localEventoId = localEventoId; }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

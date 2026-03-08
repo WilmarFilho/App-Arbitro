@@ -95,13 +95,15 @@ public class EventoPartidaService {
             boolean isSubstitution,
             UUID tipoEventoId,
             String tempoCronometro,
-            String descricaoDetalhada
+            String descricaoDetalhada,
+            String localEventoId   
     ) {}
 
     public record AddEventoGeralInput(
             UUID tipoEventoId,
             String tempoCronometro,
-            String descricaoDetalhada
+            String descricaoDetalhada,
+            String localEventoId   
     ) {}
 
     private final EventoPartidaRepository repo;
@@ -179,6 +181,18 @@ public class EventoPartidaService {
             tipos.put(te.getId(), te);
         }
 
+        // ── Idempotência ──────────────────────────────────────────────────────────
+        Set<String> localIdsRequisicao = new HashSet<>();
+        for (AddEventoGeralInput r : reqs) {
+            if (r != null && r.localEventoId() != null && !r.localEventoId().isBlank()) {
+                localIdsRequisicao.add(r.localEventoId());
+            }
+        }
+        Set<String> localIdsJaExistentes = localIdsRequisicao.isEmpty()
+            ? Set.of()
+            : repo.findExistingLocalEventoIds(localIdsRequisicao);
+        // ─────────────────────────────────────────────────────────────────────────
+
         List<EventoPartida> toSave = new ArrayList<>(reqs.size());
         for (AddEventoGeralInput r : reqs) {
             if (r == null) {
@@ -207,7 +221,15 @@ public class EventoPartidaService {
                 throw new IllegalStateException("Evento 'gol' requer equipeId (use /api/v1/partidas/{partidaId}/eventos). ");
             }
 
+            if (r.localEventoId() != null 
+                && !r.localEventoId().isBlank()
+                && localIdsJaExistentes.contains(r.localEventoId())) {
+                continue;
+            }
+
             EventoPartida ev = new EventoPartida();
+            ev.setLocalEventoId(r.localEventoId()); // ← setar
+
             ev.setPartida(partida);
             ev.setTipoEvento(tipoEvento);
             ev.setTempoCronometro(r.tempoCronometro());
@@ -319,6 +341,20 @@ public class EventoPartidaService {
             inscritosPorEquipe.put(eqId, inscritos);
         }
 
+        // ── Idempotência: coleta os localEventoIds da requisição ──────────────────
+        Set<String> localIdsRequisicao = new HashSet<>();
+        for (AddEventoInput r : reqs) {
+            if (r != null && r.localEventoId() != null && !r.localEventoId().isBlank()) {
+                localIdsRequisicao.add(r.localEventoId());
+            }
+        }
+
+        // Consulta em lote quais já existem no banco
+        Set<String> localIdsJaExistentes = localIdsRequisicao.isEmpty()
+            ? Set.of()
+            : repo.findExistingLocalEventoIds(localIdsRequisicao);
+        // ─────────────────────────────────────────────────────────────────────────
+
         // 3) Monta entidades e valida tudo
         List<EventoPartida> toSave = new ArrayList<>(reqs.size());
         int golsA = 0;
@@ -393,6 +429,17 @@ public class EventoPartidaService {
                     throw new IllegalStateException("Atleta (sai) não está inscrito nesta equipe.");
                 }
             }
+
+            // Pula silenciosamente eventos já processados (idempotência)
+            if (r.localEventoId() != null 
+                    && !r.localEventoId().isBlank()
+                    && localIdsJaExistentes.contains(r.localEventoId())) {
+                continue; // já foi salvo, ignora sem lançar erro
+            }
+
+            EventoPartida ev = new EventoPartida();
+            ev.setLocalEventoId(r.localEventoId()); // ← setar no objeto
+            // ... resto da montagem
 
 
             EventoPartida ev = new EventoPartida();
