@@ -438,11 +438,7 @@ public class EventoPartidaService {
             }
 
             EventoPartida ev = new EventoPartida();
-            ev.setLocalEventoId(r.localEventoId()); // ← setar no objeto
-            // ... resto da montagem
-
-
-            EventoPartida ev = new EventoPartida();
+            ev.setLocalEventoId(r.localEventoId());
             ev.setPartida(partida);
             ev.setEquipe(equipe);
             ev.setAtleta(atleta);

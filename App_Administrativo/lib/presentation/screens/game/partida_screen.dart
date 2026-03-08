@@ -858,6 +858,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
           widget.partida.id,
           novoStatus: 'pausada',
         );
+        debugPrint("AAAAAAAAA: PARTIDA PAUSADA");
         eventoParaRegistrar = 'PARTIDA_PAUSADA';
       }
     }

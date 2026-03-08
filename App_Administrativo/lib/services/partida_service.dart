@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:uuid/uuid.dart'; // ← ADD: flutter pub add uuid
 
 import 'package:kyarem_eventos/models/partida_model.dart';
 import 'package:kyarem_eventos/models/atletica_equipe_model.dart';
@@ -21,6 +22,7 @@ class PartidaService {
   );
 
   final _supabase = Supabase.instance.client;
+  final _uuid = const Uuid(); // ← ADD
   Database? _db;
   Timer? _syncTimer;
   bool _isSyncing = false;
@@ -39,7 +41,6 @@ class PartidaService {
     try {
       final path = join(await getDatabasesPath(), 'fila_eventos_v2.db');
 
-      // 1. Abre o banco primeiro
       _db = await openDatabase(
         path,
         version: 1,
@@ -53,7 +54,6 @@ class PartidaService {
         },
       );
 
-      // Isso garante que você comece do zero em cada reinicialização do App
       await _db!.delete('fila_eventos');
       debugPrint("SQFlite: Banco inicializado e registros antigos limpos.");
     } catch (e) {
@@ -67,7 +67,7 @@ class PartidaService {
     });
   }
 
-  // --- LÓGICA DE SINCRONIZAÇÃO COM DESVIO DE ENDPOINT ---
+  // --- LÓGICA DE SINCRONIZAÇÃO ---
   Future<void> _processarFilaOffline() async {
     if (_isSyncing || _db == null) return;
     _isSyncing = true;
@@ -77,32 +77,27 @@ class PartidaService {
         'fila_eventos',
         orderBy: 'id ASC',
       );
-      if (pendentes.isEmpty) {
-        _isSyncing = false;
-        return;
-      }
+      if (pendentes.isEmpty) return;
 
-      // Agrupadores
       Map<String, List<Map<String, dynamic>>> lotesComAtleta = {};
       Map<String, List<int>> idsParaDeletar = {};
 
       for (var item in pendentes) {
-        String pId = item['partida_id'];
-        int rowId = item['id'];
-        Map<String, dynamic> corpo = jsonDecode(item['dados']);
+        final String pId = item['partida_id'];
+        final int rowId = item['id'];
+        final Map<String, dynamic> corpo = jsonDecode(item['dados']);
 
-        // SE NÃO TEM ATLETA: Envia individualmente para o endpoint da partida
+        // SE NÃO TEM ATLETA: envia para /eventos-gerais
         if (corpo['atletaId'] == null) {
           await _enviarEventoSemAtleta(pId, corpo, rowId);
           continue;
         }
 
-        // SE TEM ATLETA: Agrupa para envio em lote
+        // SE TEM ATLETA: agrupa para envio em lote
         lotesComAtleta.putIfAbsent(pId, () => []).add(corpo);
         idsParaDeletar.putIfAbsent(pId, () => []).add(rowId);
       }
 
-      // Envia os lotes agrupados (Eventos com Atleta)
       for (var partidaId in lotesComAtleta.keys) {
         await _enviarLoteComAtleta(
           partidaId,
@@ -129,10 +124,21 @@ class PartidaService {
         '/partidas/$partidaId/eventos',
         data: lista,
       );
-      if (response.statusCode == 200 || response.statusCode == 201) {
+
+      // ← FIX: 409 = servidor já tinha o evento (idempotência) → limpa fila normalmente
+      final sucesso =
+          response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 409;
+
+      if (sucesso && _db != null) {
         await _db!.delete('fila_eventos', where: 'id IN (${ids.join(',')})');
       }
-    } catch (e) {
+    } on DioException catch (e) {
+      // 409 pode vir como DioException dependendo da config do Dio
+      if (e.response?.statusCode == 409 && _db != null) {
+        await _db!.delete('fila_eventos', where: 'id IN (${ids.join(',')})');
+      }
       debugPrint("Erro no lote: $e");
     }
   }
@@ -144,25 +150,35 @@ class PartidaService {
     int rowId,
   ) async {
     try {
-      debugPrint("=== EVENTO SEM ATLETA: /partidas/$partidaId/eventos ===");
+      debugPrint(
+        "=== EVENTO SEM ATLETA: /partidas/$partidaId/eventos-gerais ===",
+      );
       debugPrint(jsonEncode([dado]));
 
-      // O endpoint /eventos espera uma LISTA de eventos, mesmo para 1 item.
       final response = await _dio.post(
         '/partidas/$partidaId/eventos-gerais',
         data: [dado],
       );
 
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          _db != null) {
+      // ← FIX: 409 = servidor já tinha o evento (idempotência) → limpa fila normalmente
+      final sucesso =
+          response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 409;
+
+      if (sucesso && _db != null) {
         await _db!.delete('fila_eventos', where: 'id = ?', whereArgs: [rowId]);
       }
-    } catch (e) {
+    } on DioException catch (e) {
+      // 409 pode vir como DioException dependendo da config do Dio
+      if (e.response?.statusCode == 409 && _db != null) {
+        await _db!.delete('fila_eventos', where: 'id = ?', whereArgs: [rowId]);
+      }
       debugPrint("Erro evento individual: $e");
     }
   }
 
-  // --- MÉTODO DE ESCRITA (SALVAR NO CACHE) ---
+  // --- MÉTODO DE ESCRITA (SALVAR NA FILA) ---
   Future<void> salvarEvento({
     required String partidaId,
     required String tipoEventoId,
@@ -173,9 +189,9 @@ class PartidaService {
     String? descricao,
     bool isSubstitution = false,
   }) async {
-    // PAYLOAD EXATO CONFORME SEU SWAGGER
-
     final Map<String, dynamic> payload = {
+      // ← ADD: chave de idempotência gerada no device
+      "localEventoId": _uuid.v4(),
       "partidaId": partidaId,
       "equipeId": (equipeId?.isEmpty ?? true) ? null : equipeId,
       "atletaId": (atletaId?.isEmpty ?? true) ? null : atletaId,
@@ -190,8 +206,11 @@ class PartidaService {
       await _db!.insert('fila_eventos', {
         'partida_id': partidaId,
         'dados': jsonEncode(payload),
+        'criado_em': DateTime.now().toIso8601String(), // ← FIX: campo faltante
       });
-      _processarFilaOffline();
+
+      // ← FIX: await garante que não reprocessa antes de terminar
+      await _processarFilaOffline();
     }
   }
 
@@ -206,8 +225,9 @@ class PartidaService {
             if (session!.isExpired) {
               final response = await _supabase.auth.refreshSession();
               final newToken = response.session?.accessToken;
-              if (newToken != null)
+              if (newToken != null) {
                 options.headers['Authorization'] = 'Bearer $newToken';
+              }
             } else {
               options.headers['Authorization'] = 'Bearer $token';
             }
@@ -218,7 +238,7 @@ class PartidaService {
     );
   }
 
-  // --- MÉTODOS DE BUSCA (COM RETURNS GARANTIDOS) ---
+  // --- MÉTODOS DE BUSCA ---
 
   Future<Equipe?> buscarEquipePorId(String equipeId) async {
     final id = equipeId.trim();
@@ -298,7 +318,7 @@ class PartidaService {
     } catch (e) {
       debugPrint("Erro listarTodasPartidas: $e");
     }
-    return []; // Garante o retorno se falhar ou não entrar no if
+    return [];
   }
 
   Future<List<Partida>> listarPartidasMinhas() async {
@@ -325,7 +345,7 @@ class PartidaService {
           .select('tempo_cronometro, criado_em, tipo_evento_id')
           .eq('partida_id', partidaId)
           .not('tempo_cronometro', 'is', null)
-          .isFilter('atleta_id', null) // ← NOVO
+          .isFilter('atleta_id', null)
           .order('criado_em', ascending: false)
           .limit(1)
           .maybeSingle();
@@ -407,9 +427,6 @@ class PartidaService {
     }
   }
 
-  // --- MÉTODOS DE ATUALIZAÇÃO ---
-
-  // No partido_service.dart ou evento_service.dart
   Future<List<Map<String, dynamic>>> buscarEventosDaPartida(
     String partidaId,
   ) async {

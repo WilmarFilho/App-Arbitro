@@ -31,6 +31,8 @@ public class PartidaService {
     public static final String STATUS_INTERVALO = "intervalo";
     public static final String STATUS_SEGUNDO_TEMPO = "2° tempo";
     public static final String STATUS_PRORROGACAO = "prorrogação";
+    public static final String STATUS_ACRESCIMO = "acréscimo";
+    public static final String STATUS_PAUSADA = "pausada";
     public static final String STATUS_FINALIZADA = "finalizada";
 
     private static final Set<String> VALID_STATUS = Set.of(
@@ -39,6 +41,8 @@ public class PartidaService {
             STATUS_INTERVALO,
             STATUS_SEGUNDO_TEMPO,
             STATUS_PRORROGACAO,
+            STATUS_ACRESCIMO,
+            STATUS_PAUSADA,
             STATUS_FINALIZADA
     );
 
@@ -285,6 +289,8 @@ public class PartidaService {
         if (s.equals("prorrogacao")) return STATUS_PRORROGACAO;
 
         // Aceita variações comuns
+        if (s.equals("pausa") || s.equals("pausado")) return STATUS_PAUSADA;
+        if (s.equals("acrescimo") || s.equals("acréscimo")) return STATUS_ACRESCIMO;
         if (s.equals("1o tempo") || s.equals("1°tempo") || s.equals("1 tempo") || s.equals("primeiro tempo")) return STATUS_PRIMEIRO_TEMPO;
         if (s.equals("2o tempo") || s.equals("2°tempo") || s.equals("2 tempo") || s.equals("segundo tempo")) return STATUS_SEGUNDO_TEMPO;
 
