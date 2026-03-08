@@ -12,7 +12,7 @@ class GameTimerCard extends StatelessWidget {
   final int segundosPausa;
   final int tempoProrrogacao;
   final bool temProrrogacao;
-  
+
   // Novos campos para Acréscimo
   final int tempoAcrescimo;
   final bool temAcrescimo;
@@ -36,12 +36,12 @@ class GameTimerCard extends StatelessWidget {
     required this.tempoProrrogacao,
     required this.temProrrogacao,
     required this.tempoAcrescimo, // Adicionado
-    required this.temAcrescimo,    // Adicionado
+    required this.temAcrescimo, // Adicionado
     required this.onToggleCronometro,
     this.onFinalizarPrimeiroTempo,
     this.onFinalizarSegundoTempo,
     this.onAbrirModalProrrogacao,
-    this.onAbrirModalAcrescimo,   // Adicionado
+    this.onAbrirModalAcrescimo, // Adicionado
   });
 
   String _formatarTempo(int totalSegundos) {
@@ -95,7 +95,7 @@ class GameTimerCard extends StatelessWidget {
               size: 40,
             ),
           ),
-          
+
           // Coluna Central (Cronômetro e Status)
           Expanded(
             child: Column(
@@ -111,17 +111,44 @@ class GameTimerCard extends StatelessWidget {
                 ),
                 // Feedback visual de Acréscimo
                 if (temAcrescimo && periodoAtual != PeriodoPartida.intervalo)
-                   Text(
-                    '+${tempoAcrescimo ~/ 60} MIN ACRÉSCIMO',
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                  Text(
+                    'Acréscimo configurado para ${(tempoAcrescimo) ~/ 60}min',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                if (temAcrescimo && periodoAtual == PeriodoPartida.acrescimo)
+                  Text(
+                    'JOGO ATÉ ${(tempoAcrescimo) ~/ 60}min',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 // Feedback visual de Prorrogação
                 if (periodoAtual == PeriodoPartida.prorrogacao)
-                  const Text('EM PRORROGAÇÃO', style: TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold))
-                else if (temProrrogacao && periodoAtual == PeriodoPartida.segundoTempo)
-                  Text('PRORROGAÇÃO CONFIGURADA (${tempoProrrogacao ~/ 60}min)', 
-                       style: const TextStyle(color: Colors.orange, fontSize: 10)),
-                
+                  const Text(
+                    'EM PRORROGAÇÃO',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.yellow,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                else if (temProrrogacao &&
+                    periodoAtual == PeriodoPartida.segundoTempo)
+                  Text(
+                    'PRORROGAÇÃO CONFIGURADA (${tempoProrrogacao ~/ 60}min)',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.orange, fontSize: 10),
+                  ),
+
                 // ... (Pausas técnicas e intervalo permanecem iguais)
               ],
             ),
@@ -132,27 +159,41 @@ class GameTimerCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Lógica para 1º Tempo
-              if (periodoAtual == PeriodoPartida.primeiroTempo && !emPausaTecnica) ...[
-                _buildTimeButton("Fim 1º tempo", onFinalizarPrimeiroTempo ?? () {}),
+              if (periodoAtual == PeriodoPartida.primeiroTempo &&
+                  !emPausaTecnica) ...[
+                _buildTimeButton(
+                  "Fim 1º tempo",
+                  onFinalizarPrimeiroTempo ?? () {},
+                ),
                 const SizedBox(height: 4),
                 _buildTimeButton(
-                  temAcrescimo ? "Acr: ${tempoAcrescimo ~/ 60}min" : "Dar Acréscimo", 
-                  onAbrirModalAcrescimo ?? () {}
+                  temAcrescimo
+                      ? "Acr: ${tempoAcrescimo ~/ 60}min"
+                      : "Dar Acréscimo",
+                  onAbrirModalAcrescimo ?? () {},
                 ),
               ],
 
               // Lógica para 2º Tempo
-              if (periodoAtual == PeriodoPartida.segundoTempo && !emPausaTecnica) ...[
-                _buildTimeButton("Fim 2º tempo", onFinalizarSegundoTempo ?? () {}),
+              if (periodoAtual == PeriodoPartida.segundoTempo &&
+                  !emPausaTecnica) ...[
+                _buildTimeButton(
+                  "Fim 2º tempo",
+                  onFinalizarSegundoTempo ?? () {},
+                ),
                 const SizedBox(height: 4),
                 _buildTimeButton(
-                  temAcrescimo ? "Acr: ${tempoAcrescimo ~/ 60}min" : "Dar Acréscimo", 
-                  onAbrirModalAcrescimo ?? () {}
+                  temAcrescimo
+                      ? "Acr: ${tempoAcrescimo ~/ 60}min"
+                      : "Dar Acréscimo",
+                  onAbrirModalAcrescimo ?? () {},
                 ),
                 const SizedBox(height: 4),
                 // PRORROGAÇÃO: Só aparece no 2º tempo conforme solicitado
                 _buildTimeButton(
-                  temProrrogacao ? "Prr: ${tempoProrrogacao ~/ 60}min" : "Dar Prorrogação",
+                  temProrrogacao
+                      ? "Prr: ${tempoProrrogacao ~/ 60}min"
+                      : "Dar Prorrogação",
                   onAbrirModalProrrogacao ?? () {},
                 ),
               ],

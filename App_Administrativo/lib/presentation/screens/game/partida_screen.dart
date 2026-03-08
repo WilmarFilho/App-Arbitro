@@ -15,6 +15,7 @@ import '../../widgets/game/game_actions_panel.dart';
 
 enum PeriodoPartida {
   naoIniciada,
+  pausada,
   primeiroTempo,
   intervalo,
   segundoTempo,
@@ -54,6 +55,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
 
   late PeriodoPartida _periodoAtual;
   PeriodoPartida? _periodoAntesDoAcrescimo;
+  PeriodoPartida? _periodoAntesDoPausa;
 
   Timer? _timer;
   int _segundos = 0;
@@ -200,6 +202,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     switch (status.toLowerCase()) {
       case 'agendada':
         return PeriodoPartida.naoIniciada;
+      case 'pausada':
+        return PeriodoPartida.pausada;
       case '1° tempo':
         return PeriodoPartida.primeiroTempo;
       case '2° tempo':
@@ -418,7 +422,15 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
           });
           if (_periodoAntesDoAcrescimo == PeriodoPartida.primeiroTempo) {
             _finalizarPrimeiroTempo();
-          } else {
+            // 2º Prioridade: Se não tem acréscimo (ou já acabou) e tem prorrogação
+          } else if (_periodoAntesDoAcrescimo == PeriodoPartida.segundoTempo &&
+              _temProrrogacao &&
+              !_estaNaProrrogacao) {
+            _iniciarProrrogacao();
+            _estaNaProrrogacao = true;
+          }
+          // 3º Prioridade: Finaliza se não houver mais nada pendente
+          else {
             _finalizarPartida();
           }
         }
@@ -719,6 +731,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
       });
     }
 
+    _periodoAntesDoPausa = _periodoAtual;
+
+    _partidaService.atualizarPartida(widget.partida.id, novoStatus: 'pausada');
+
     // Iniciar pausa técnica
     setState(() {
       _emPausaTecnica = true;
@@ -771,6 +787,25 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     _timeEmPausaTecnica = '';
     _segundosPausaTecnica = 0;
 
+    debugPrint("PAUSA TECNICA FINALIZADA");
+
+    if (_periodoAntesDoPausa == PeriodoPartida.primeiroTempo) {
+      _partidaService.atualizarPartida(
+        widget.partida.id,
+        novoStatus: '1° tempo',
+      );
+    } else if (_periodoAntesDoPausa == PeriodoPartida.segundoTempo) {
+      _partidaService.atualizarPartida(
+        widget.partida.id,
+        novoStatus: '2° tempo',
+      );
+    } else if (_periodoAntesDoPausa == PeriodoPartida.prorrogacao) {
+      _partidaService.atualizarPartida(
+        widget.partida.id,
+        novoStatus: 'prorrogação',
+      );
+    }
+
     _registrarEventoSistemico('FIM_PAUSA_TECNICA');
   }
 
@@ -797,11 +832,32 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
           );
           break;
         default:
+          if (_periodoAntesDoPausa == PeriodoPartida.primeiroTempo) {
+            _partidaService.atualizarPartida(
+              widget.partida.id,
+              novoStatus: '1° tempo',
+            );
+          } else if (_periodoAntesDoPausa == PeriodoPartida.segundoTempo) {
+            _partidaService.atualizarPartida(
+              widget.partida.id,
+              novoStatus: '2° tempo',
+            );
+          } else if (_periodoAntesDoPausa == PeriodoPartida.prorrogacao) {
+            _partidaService.atualizarPartida(
+              widget.partida.id,
+              novoStatus: 'prorrogação',
+            );
+          }
           eventoParaRegistrar = 'PARTIDA_RETOMADA';
           break;
       }
     } else {
       if (_periodoAtual != PeriodoPartida.finalizada && !_emPausaTecnica) {
+        _periodoAntesDoPausa = _periodoAtual;
+        _partidaService.atualizarPartida(
+          widget.partida.id,
+          novoStatus: 'pausada',
+        );
         eventoParaRegistrar = 'PARTIDA_PAUSADA';
       }
     }
