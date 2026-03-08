@@ -234,7 +234,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
   }
 
   // Método para registrar eventos sistêmicos usando as IDs reais carregadas
-  Future<void> _registrarEventoSistemico(String nomeEventoNoBanco) async {
+  Future<void> _registrarEventoSistemico(
+    String nomeEventoNoBanco, {
+    String descricao = '',
+  }) async {
     // 1. Tentar encontrar o tipo de evento na lista carregada
     final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
       (e) => e.nome == nomeEventoNoBanco,
@@ -263,6 +266,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     // 3. Salvar no Banco de Dados com a ID real
     if (tipoEvento.id.isNotEmpty) {
       await _partidaService.salvarEvento(
+        descricao: descricao,
         partidaId: widget.partida.id,
         tipoEventoId: tipoEvento.id,
         tempoFormatado: _formatarTempo(_segundos),
@@ -580,7 +584,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                 return;
               }
 
-              _registrarEventoSistemico('PRORROGACAO_DADA');
+              _registrarEventoSistemico(
+                'PRORROGACAO_DADA',
+                descricao: 'Prorrogação de $minutos minutos definida!',
+              );
 
               setState(() {
                 _tempoProrrogacao = minutos * 60; // Converter para segundos
@@ -652,7 +659,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                 return;
               }
 
-              _registrarEventoSistemico('ACRESCIMO_DADO');
+              _registrarEventoSistemico(
+                'ACRESCIMO_DADO',
+                descricao: 'Acrescimo de $minutos minutos definido!',
+              );
 
               setState(() {
                 _tempoAcrescimo = minutos * 60; // Converter para segundos
