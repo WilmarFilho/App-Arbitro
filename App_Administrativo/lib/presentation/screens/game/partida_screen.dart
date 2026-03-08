@@ -809,15 +809,17 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     _registrarEventoSistemico('FIM_PAUSA_TECNICA');
   }
 
-  void _alternarCronometro() {
+  Future<void> _alternarCronometro() async {
     // ✅ 1. Decide o que vai acontecer ANTES do setState
     final bool novoRodando = !_rodando;
     String? eventoParaRegistrar;
-    VoidCallback? atualizarServico;
+    Future<void> Function()? atualizarServico;
 
     if (novoRodando) {
+      debugPrint("INICIOU");
       switch (_periodoAtual) {
         case PeriodoPartida.naoIniciada:
+          debugPrint("NAO INICIADA");
           eventoParaRegistrar = 'INICIO_1_TEMPO';
           atualizarServico = () => _partidaService.atualizarPartida(
             widget.partida.id,
@@ -902,7 +904,12 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
       }
     }
 
-    // ✅ Evento registrado UMA única vez, fora do setState
+    // ✅ AWAIT no status ANTES de registrar o evento
+    // Garante que o backend já tem o status atualizado quando o evento chegar
+    if (atualizarServico != null) {
+      await atualizarServico();
+    }
+
     if (eventoParaRegistrar != null) {
       _registrarEventoSistemico(eventoParaRegistrar);
     }
