@@ -238,6 +238,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     String nomeEventoNoBanco, {
     String descricao = '',
   }) async {
+    debugPrint("REGISTRANDO EVENTO: $nomeEventoNoBanco");
     // 1. Tentar encontrar o tipo de evento na lista carregada
     final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
       (e) => e.nome == nomeEventoNoBanco,
@@ -265,6 +266,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
 
     // 3. Salvar no Banco de Dados com a ID real
     if (tipoEvento.id.isNotEmpty) {
+      debugPrint("SALVANDO EVENTO NO BANCO: ${tipoEvento.id}");
       await _partidaService.salvarEvento(
         descricao: descricao,
         partidaId: widget.partida.id,
@@ -799,22 +801,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
 
     debugPrint("PAUSA TECNICA FINALIZADA");
 
-    if (_periodoAntesDoPausa == PeriodoPartida.primeiroTempo) {
-      _partidaService.atualizarPartida(
-        widget.partida.id,
-        novoStatus: '1° tempo',
-      );
-    } else if (_periodoAntesDoPausa == PeriodoPartida.segundoTempo) {
-      _partidaService.atualizarPartida(
-        widget.partida.id,
-        novoStatus: '2° tempo',
-      );
-    } else if (_periodoAntesDoPausa == PeriodoPartida.prorrogacao) {
-      _partidaService.atualizarPartida(
-        widget.partida.id,
-        novoStatus: 'prorrogação',
-      );
-    }
+    _partidaService.atualizarPartida(widget.partida.id, novoStatus: 'pausada');
 
     _registrarEventoSistemico('FIM_PAUSA_TECNICA');
   }
@@ -860,6 +847,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
               novoStatus: 'prorrogação',
             );
           }
+          debugPrint("PARTIDA RETOMADA");
           eventoParaRegistrar = 'PARTIDA_RETOMADA';
           break;
       }
