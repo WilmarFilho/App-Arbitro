@@ -21,11 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Eventos gerais da partida (não vinculados a atletas/equipes).
- *
- * Mesma regra de segurança do POST /eventos, porém sem atletaId/equipeId/isSubstitution/atletaSaiId.
- */
 @RestController
 @RequestMapping("/api/v1/partidas/{partidaId}/eventos-gerais")
 public class EventosPartidaGeraisController {
@@ -51,7 +46,8 @@ public class EventosPartidaGeraisController {
                 .map(r -> new EventoPartidaService.AddEventoGeralInput(
                         r.tipoEventoId(),
                         r.tempoCronometro(),
-                        r.descricaoDetalhada()
+                        r.descricaoDetalhada(),
+                        r.localEventoId()  // ← ADD
                 ))
                 .toList();
 
@@ -62,13 +58,15 @@ public class EventosPartidaGeraisController {
     private boolean isArbitroOnly(Authentication authentication) {
         boolean isAdminOrDelegado = authentication.getAuthorities().stream().anyMatch(a ->
                 a.getAuthority().equals("ROLE_admin") || a.getAuthority().equals("ROLE_delegado"));
-        boolean isArbitro = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_arbitro"));
+        boolean isArbitro = authentication.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_arbitro"));
         return isArbitro && !isAdminOrDelegado;
     }
 
     public record AddEventoGeralRequest(
             @NotNull UUID tipoEventoId,
             @NotBlank String tempoCronometro,
-            String descricaoDetalhada
+            String descricaoDetalhada,
+            String localEventoId  // ← ADD (nullable, sem validação)
     ) {}
 }

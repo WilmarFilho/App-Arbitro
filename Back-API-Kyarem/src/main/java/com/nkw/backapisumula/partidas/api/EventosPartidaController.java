@@ -52,7 +52,8 @@ public class EventosPartidaController {
                         Boolean.TRUE.equals(r.isSubstitution()),
                         r.tipoEventoId(),
                         r.tempoCronometro(),
-                        r.descricaoDetalhada()
+                        r.descricaoDetalhada(),
+                        r.localEventoId()  // ← ADD
                 ))
                 .toList();
 
@@ -63,7 +64,8 @@ public class EventosPartidaController {
     private boolean isArbitroOnly(Authentication authentication) {
         boolean isAdminOrDelegado = authentication.getAuthorities().stream().anyMatch(a ->
                 a.getAuthority().equals("ROLE_admin") || a.getAuthority().equals("ROLE_delegado"));
-        boolean isArbitro = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_arbitro"));
+        boolean isArbitro = authentication.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_arbitro"));
         return isArbitro && !isAdminOrDelegado;
     }
 
@@ -74,8 +76,11 @@ public class EventosPartidaController {
             Boolean isSubstitution,
             @NotNull UUID tipoEventoId,
             @NotBlank String tempoCronometro,
-            String descricaoDetalhada
-    ) {}public record EventoPartidaResponse(
+            String descricaoDetalhada,
+            String localEventoId  // ← ADD (nullable, sem validação)
+    ) {}
+
+    public record EventoPartidaResponse(
             UUID id,
             UUID partidaId,
             UUID equipeId,

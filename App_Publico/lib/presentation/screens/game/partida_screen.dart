@@ -36,7 +36,8 @@ class JogoDetalhesScreen extends StatefulWidget {
 }
 
 class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
-  String _statusAtual = ''; // ← novo
+  // ← status atual da partida; começa vazio para indicar "ainda não chegou"
+  String _statusAtual = '';
 
   // ── CRONÔMETRO PÚBLICO ──────────────────────────────────────────────
   Timer? _cronometroTicker;
@@ -44,23 +45,29 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   bool _cronometroRodando = false;
 
   // Âncora do último evento confiável
-  int _segundosAncora = 0; // tempo_cronometro do último evento (em segundos)
-  DateTime? _timestampAncora; // criado_em do último evento
+  int _segundosAncora = 0;
+  DateTime? _timestampAncora;
   // ────────────────────────────────────────────────────────────────────
 
   final SupabaseClient supabase = Supabase.instance.client;
   final EventoService _eventoService = EventoService();
 
-  // Streams para Realtime
   late final Stream<List<Map<String, dynamic>>> _eventosStream;
   late final Stream<Map<String, dynamic>> _partidaStream;
   late Future<List<Map<String, dynamic>>> _futureTipos;
   List<Map<String, dynamic>> _tiposEventosCache = [];
 
-  // Cache local de nomes de atletas (atleta_id → nome)
   final Map<String, String> _atletaNomeCache = {};
 
-  @override
+  // Statuses que significam que o relógio está correndo
+  // 'pausada' está AUSENTE — garante que nunca liga o ticker nesse estado
+  static const _statusRodando = {
+    '1° tempo',
+    '2° tempo',
+    'acréscimo',
+    'prorrogação',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -94,6 +101,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     });
 
     // Escuta status da partida para ligar/desligar o ticker
+    // IMPORTANTE: deve ser registrado antes de qualquer lógica de religar
     _partidaStream.listen((dados) {
       if (!mounted) return;
       _atualizarEstadoCronometro(dados['status']?.toString() ?? '');
@@ -106,7 +114,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     super.dispose();
   }
 
-  /// Retorna o nome amigável do tipo de evento a partir do cache de tipos
   String _friendlyEventName(Map<String, dynamic> ev) {
     final tipoData = _tiposEventosCache.firstWhere(
       (t) => t['id'] == ev['tipo_evento_id'],
@@ -115,14 +122,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     final rawName = tipoData['nome']?.toString() ?? 'Evento';
     return EventoService.friendly(rawName);
   }
-
-  // Statuses que significam que o relógio está correndo
-  static const _statusRodando = {
-    '1° tempo',
-    '2° tempo',
-    'acréscimo',
-    'prorrogação',
-  };
 
   /// Lê o último evento e atualiza a âncora (segundosAncora + timestampAncora)
   void _atualizarAncora(List<Map<String, dynamic>> eventos) {
@@ -142,7 +141,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
 
     if (novoTimestamp == null) return;
 
-    // ── NOVO: descobre o tipo do evento mais recente ──────────────────
+    // Descobre se o último evento indica pausa
     final tipoId = eventoAncora['tipo_evento_id']?.toString();
     final tipoData = _tiposEventosCache.firstWhere(
       (t) => t['id'] == tipoId,
@@ -154,7 +153,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         rawNome.contains('PAUSA_TECNICA') ||
         rawNome.contains('INTERVALO') ||
         rawNome.contains('FIM_');
-    // ─────────────────────────────────────────────────────────────────
 
     setState(() {
       _segundosAncora = novaAncora;
@@ -169,21 +167,21 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       }
     });
 
-    // ── NOVO: pausa/retoma o ticker baseado no último evento ──────────
     if (eventoIndicaPausa && _cronometroRodando) {
+      // Evento de pausa → trava ticker imediatamente
       _cronometroRodando = false;
       _cronometroTicker?.cancel();
     } else if (!eventoIndicaPausa && !_cronometroRodando) {
-      // ← NOVO: só religa se o status atual permitir
+      // Evento de ação → só religar se o STATUS já confirmou que está rodando
+      //
+      // FIX: _statusAtual.isEmpty cobre o caso de re-entrada onde o stream de
+      // eventos chega ANTES do stream de status. Enquanto o status não
+      // chegou, não ligamos o ticker em hipótese alguma.
       final statusPermiteRodar = _statusRodando.contains(
         _statusAtual.toLowerCase(),
       );
-      if (!statusPermiteRodar) return;
+      if (!statusPermiteRodar || _statusAtual.isEmpty) return;
 
-      // Só religar se o status atual ainda for um status "rodando"
-      // (evita religar no intervalo ou fim de partida)
-      // _atualizarEstadoCronometro já cuida disso quando o status muda,
-      // mas chamamos aqui para o caso de retomada via evento
       _cronometroRodando = true;
       _cronometroTicker?.cancel();
       _cronometroTicker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -200,18 +198,21 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         }
       });
     }
-    // ─────────────────────────────────────────────────────────────────
   }
 
   /// Liga ou desliga o ticker conforme o status atual da partida
   void _atualizarEstadoCronometro(String status) {
+    // FIX: atualiza _statusAtual PRIMEIRO — antes de qualquer decisão de ligar/desligar.
+    // Isso garante que _atualizarAncora (que pode rodar concorrentemente) já
+    // enxerga o status correto ao checar _statusAtual.
     _statusAtual = status;
 
     final deveRodar = _statusRodando.contains(status.toLowerCase());
 
     if (deveRodar && !_cronometroRodando) {
-      // Liga o ticker
+      // Status passou para rodando → liga o ticker
       _cronometroRodando = true;
+      _cronometroTicker?.cancel();
       _cronometroTicker = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
         if (_timestampAncora != null) {
@@ -226,9 +227,15 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
         }
       });
     } else if (!deveRodar && _cronometroRodando) {
-      // Desliga o ticker — congela no valor da âncora
+      // Status passou para pausada/intervalo/finalizada → desliga o ticker
       _cronometroRodando = false;
       _cronometroTicker?.cancel();
+      setState(() => _segundosExibidos = _segundosAncora);
+    } else if (!deveRodar && !_cronometroRodando) {
+      // FIX: já estava parado E status não é rodando (ex: re-entrada com status
+      // 'pausada') → garante que o display congela no valor da âncora atual.
+      // Sem esse bloco, o display poderia ficar no valor padrão 0 até o
+      // próximo evento chegar.
       setState(() => _segundosExibidos = _segundosAncora);
     }
   }
@@ -250,16 +257,13 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     return "${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')}";
   }
 
-  /// Busca e retorna o nome do atleta, usando cache local
   Future<String?> _resolveAtletaNome(String? atletaId) async {
     if (atletaId == null || atletaId.isEmpty) return null;
 
-    // Verifica cache primeiro
     if (_atletaNomeCache.containsKey(atletaId)) {
       return _atletaNomeCache[atletaId];
     }
 
-    // Busca do Supabase
     final nome = await _eventoService.buscarNomeAtleta(atletaId);
     if (nome != null) {
       _atletaNomeCache[atletaId] = nome;
@@ -267,7 +271,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     return nome;
   }
 
-  /// Monta a descrição completa do evento com nome amigável e atleta
   Future<String> _buildEventDescription(Map<String, dynamic> ev) async {
     final friendlyName = _friendlyEventName(ev);
     final atletaId = ev['atleta_id']?.toString();
@@ -285,14 +288,10 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       }
     } else if (atletaId != null) {
       final nome = await _resolveAtletaNome(atletaId);
-      if (nome != null) {
-        parts.add(nome);
-      }
+      if (nome != null) parts.add(nome);
     }
 
-    if (descricao.isNotEmpty) {
-      parts.add(descricao);
-    }
+    if (descricao.isNotEmpty) parts.add(descricao);
 
     return parts.join(' — ');
   }
@@ -313,11 +312,9 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       ),
       body: Column(
         children: [
-          // Header com StreamBuilder para o placar
           StreamBuilder<Map<String, dynamic>>(
             stream: _partidaStream,
             builder: (context, snapshot) {
-              // Se ainda não carregou o stream, usa os dados do widget (estáticos)
               final dados = snapshot.data;
               return _buildScoreHeader(
                 placarA: dados?['placar_a']?.toString() ?? widget.placarA,
@@ -352,8 +349,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     );
   }
 
-  // --- WIDGETS DE INTERFACE ---
-
   Widget _buildScoreHeader({
     required String placarA,
     required String placarB,
@@ -368,7 +363,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
           _buildTeamBadge(widget.timeA, widget.EscudoTimeA),
           Column(
             children: [
-              // Placar
               Text(
                 "$placarA - $placarB",
                 style: const TextStyle(
@@ -377,8 +371,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                   color: Colors.white,
                 ),
               ),
-
-              // Badge de status
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -396,8 +388,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                     fontSize: 12,
                   ),
                 ),
-              ), // ← Container fecha AQUI
-              // Cronômetro — irmão na Column, não dentro do Container acima
+              ),
               const SizedBox(height: 8),
               Text(
                 _formatarCronometroPublico(_segundosExibidos),
@@ -409,8 +400,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                   letterSpacing: 2,
                 ),
               ),
-
-              // Indicador "● AO VIVO" — só aparece quando rodando
               if (_cronometroRodando) ...[
                 const SizedBox(height: 2),
                 Row(
@@ -469,15 +458,13 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
           child: Text(
             nome,
             textAlign: TextAlign.center,
-            maxLines: 3, // Permite até 2 linhas
-            softWrap: true, // Habilita a quebra automática
-            overflow:
-                TextOverflow.ellipsis, // Adiciona "..." se passar de 2 linhas
+            maxLines: 3,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              height:
-                  1.1, // Ajuste opcional para aproximar as linhas e economizar espaço
+              height: 1.1,
             ),
           ),
         ),
@@ -489,8 +476,9 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _eventosStream,
       builder: (context, snapshot) {
-        if (snapshot.hasError)
+        if (snapshot.hasError) {
           return const Center(child: Text("Erro ao carregar lances"));
+        }
 
         final eventos = snapshot.data ?? [];
         if (eventos.isEmpty) {
@@ -533,14 +521,12 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     );
   }
 
-  // Novo método para encapsular a animação de entrada
   Widget _buildAnimatedTimelineItem(
     Map<String, dynamic> ev,
     int index,
     int total,
   ) {
     return TweenAnimationBuilder<double>(
-      // Sempre que um item novo for renderizado, ele vai de 0.0 a 1.0
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeOutQuart,
       tween: Tween(begin: 0.0, end: 1.0),
@@ -560,7 +546,6 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   Widget _buildTimelineItem(Map<String, dynamic> ev, int index, int total) {
     final friendlyName = _friendlyEventName(ev);
 
-    // Determina ícone e cor com base no nome cru
     final tipoData = _tiposEventosCache.firstWhere(
       (t) => t['id'] == ev['tipo_evento_id'],
       orElse: () => {'nome': 'Evento'},
@@ -664,13 +649,10 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        // Descrição com nome do atleta (FutureBuilder para async)
                         FutureBuilder<String>(
                           future: _buildEventDescription(ev),
                           builder: (context, snap) {
                             final desc = snap.data ?? '';
-                  
-                            // Remove o friendlyName do início pois já mostramos acima
                             final cleanDesc = desc.startsWith(friendlyName)
                                 ? desc
                                       .substring(friendlyName.length)
