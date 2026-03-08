@@ -228,7 +228,7 @@ public class EventoPartidaService {
             }
 
             EventoPartida ev = new EventoPartida();
-            ev.setLocalEventoId(r.localEventoId()); // ← setar
+            ev.setLocalEventoId(r.localEventoId());
 
             ev.setPartida(partida);
             ev.setTipoEvento(tipoEvento);
