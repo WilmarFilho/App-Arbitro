@@ -272,29 +272,29 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   }
 
   Future<String> _buildEventDescription(Map<String, dynamic> ev) async {
-    final friendlyName = _friendlyEventName(ev);
-    final atletaId = ev['atleta_id']?.toString();
-    final atletaSaiId = ev['atleta_sai_id']?.toString();
-    final isSubstitution = ev['is_substitution'] == true;
-    final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
+  final friendlyName = _friendlyEventName(ev);
+  final atletaId = ev['atleta_id']?.toString();
+  final atletaSaiId = ev['atleta_sai_id']?.toString();
+  final isSubstitution = ev['is_substitution'] == true;
+  final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
 
-    final parts = <String>[friendlyName];
+  final parts = <String>[friendlyName];
 
-    if (isSubstitution && atletaId != null && atletaSaiId != null) {
-      final nomeEntra = await _resolveAtletaNome(atletaId);
-      final nomeSai = await _resolveAtletaNome(atletaSaiId);
-      if (nomeEntra != null && nomeSai != null) {
-        parts.add('Entra: $nomeEntra, Sai: $nomeSai');
-      }
-    } else if (atletaId != null) {
-      final nome = await _resolveAtletaNome(atletaId);
-      if (nome != null) parts.add(nome);
+  if (isSubstitution && atletaId != null && atletaSaiId != null) {
+    final nomeEntra = await _resolveAtletaNome(atletaId);
+    final nomeSai = await _resolveAtletaNome(atletaSaiId);
+    if (nomeEntra != null && nomeSai != null) {
+      parts.add('Entra: $nomeEntra, Sai: $nomeSai');
     }
-
-    if (descricao.isNotEmpty) parts.add(descricao);
-
-    return parts.join(' — ');
+  } else if (atletaId != null) {
+    final nome = await _resolveAtletaNome(atletaId);
+    if (nome != null) parts.add(nome);
   }
+
+  if (descricao.isNotEmpty) parts.add('Obs.: $descricao');
+
+  return parts.join(' — ');
+}
 
   @override
   Widget build(BuildContext context) {

@@ -6,6 +6,7 @@ class EventoPartida {
   final int? jogadorNumero;
   final Color? corTime;
   final String horario;
+  final String? observacao;
 
   EventoPartida({
     required this.tipo,
@@ -13,6 +14,7 @@ class EventoPartida {
     this.jogadorNome,
     this.jogadorNumero,
     this.corTime,
+    this.observacao,
   });
 
   /// Getter que traduz o tipo técnico para uma string amigável para a UI
@@ -63,4 +65,10 @@ class EventoPartida {
 
   /// Verifica se o evento é um evento de sistema (sem jogador)
   bool get isSistematizado => jogadorNome == null;
+
+  String get descricaoCompleta {
+    final obs = observacao?.trim() ?? '';
+    if (obs.isEmpty) return descricao;
+    return '$descricao • $obs';
+  }
 }

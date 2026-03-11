@@ -42,7 +42,7 @@ class GameEventsFeed extends StatelessWidget {
           CircleAvatar(backgroundColor: evento.corTime, radius: 4),
           const SizedBox(width: 8),
           Text(
-            "${evento.descricao} - ${evento.horario}",
+            "${evento.descricaoCompleta} - ${evento.horario}",
             style: const TextStyle(color: Colors.white, fontSize: 11),
           ),
         ],

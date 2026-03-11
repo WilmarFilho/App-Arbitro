@@ -6,7 +6,7 @@ import '../../screens/game/partida_screen.dart';
 class GameActionsPanel extends StatelessWidget {
   final Atleta? jogadorSelecionado;
   final PeriodoPartida periodoAtual;
-  final void Function(TipoEventoEsporte tipo) onRegistrarEvento;
+  final Future<void> Function(TipoEventoEsporte tipo) onRegistrarEvento;
   final List<TipoEventoEsporte> tiposDeEventos;
 
   const GameActionsPanel({

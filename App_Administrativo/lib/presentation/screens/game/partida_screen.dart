@@ -939,91 +939,96 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     };
   }
 
-  void _registrarEvento(TipoEventoEsporte tipoObjeto) {
-    // 1. Validações de Estado da Partida
-    if (_periodoAtual == PeriodoPartida.naoIniciada) {
-      _mostrarAviso("Inicie a partida primeiro!", Colors.orange);
-      return;
-    }
-
-    if (_periodoAtual == PeriodoPartida.finalizada) {
-      _mostrarAviso("Partida já encerrada!", Colors.red);
-      return;
-    }
-
-    if (_periodoAtual == PeriodoPartida.intervalo) {
-      _mostrarAviso("Não é possível registrar no intervalo!", Colors.blue);
-      return;
-    }
-
-    if (_jogadorSelecionado == null) {
-      _mostrarAviso("Selecione um jogador no campo primeiro!", Colors.red);
-      return;
-    }
-
-    // 2. Extraímos informações básicas
-    final String nomeEvento = tipoObjeto.nome.trim();
-    final String tempoFormatado = _formatarTempo(_segundos);
-
-    // 3. Tratamento para substituições
-    if (nomeEvento.toLowerCase() == "substituição") {
-      _abrirModalSubstituicaoNovo();
-      return;
-    }
-
-    final jogador = _jogadorSelecionado!;
-    final isTimeA = _jogadoresA.contains(jogador);
-
-    // 4. Criar objeto de evento para a UI (Feed)
-    // AJUSTE: Adicionado o timestamp exigido pelo novo modelo abstraído
-    final novoEventoFeed = EventoPartida(
-      tipo: tipoObjeto.nomeFormatado,
-      corTime: jogador.corTime ?? Colors.grey,
-      jogadorNome: jogador.nome,
-      jogadorNumero: jogador.numero,
-      horario: tempoFormatado,
-    );
-
-    // 5. Atualização do Estado Local (UI)
-    setState(() {
-      // Lógica de Gols
-      if (nomeEvento.toLowerCase() == "gol") {
-        if (isTimeA) {
-          _golsA++;
-        } else {
-          _golsB++;
-        }
-      }
-
-      _eventosPartida.insert(0, novoEventoFeed);
-      _jogadorSelecionado = null; // Limpa seleção
-    });
-
-    // 6. Persistência no Banco de Dados/API
-
-    final String equipeIdCorreta =
-        jogador.equipeId ??
-        (isTimeA ? widget.partida.equipeAId : widget.partida.equipeBId);
-
-    _partidaService.salvarEvento(
-      partidaId: widget.partida.id,
-      equipeId: equipeIdCorreta,
-      tipoEventoId: tipoObjeto.id,
-      tempoFormatado: _formatarTempo(_segundos),
-      atletaId: jogador.atletaId,
-    );
-
-    // 7. Feedback visual
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "${tipoObjeto.nomeFormatado} registrado: ${jogador.nome} (#${jogador.numero})",
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  Future<void> _registrarEvento(TipoEventoEsporte tipoObjeto) async {
+  // 1. Validações de Estado da Partida
+  if (_periodoAtual == PeriodoPartida.naoIniciada) {
+    _mostrarAviso("Inicie a partida primeiro!", Colors.orange);
+    return;
   }
+
+  if (_periodoAtual == PeriodoPartida.finalizada) {
+    _mostrarAviso("Partida já encerrada!", Colors.red);
+    return;
+  }
+
+  if (_periodoAtual == PeriodoPartida.intervalo) {
+    _mostrarAviso("Não é possível registrar no intervalo!", Colors.blue);
+    return;
+  }
+
+  if (_jogadorSelecionado == null) {
+    _mostrarAviso("Selecione um jogador no campo primeiro!", Colors.red);
+    return;
+  }
+
+  final String nomeEvento = tipoObjeto.nome.trim();
+  final String tempoFormatado = _formatarTempo(_segundos);
+
+  if (nomeEvento.toLowerCase() == "substituição") {
+    _abrirModalSubstituicaoNovo();
+    return;
+  }
+
+  final observacao = await _solicitarObservacaoEvento(
+    tituloEvento: tipoObjeto.nomeFormatado,
+    nomeJogador: _jogadorSelecionado?.nome,
+  );
+  if (observacao == null) return;
+
+  final jogador = _jogadorSelecionado!;
+  final isTimeA = _jogadoresA.contains(jogador);
+
+  final novoEventoFeed = EventoPartida(
+    tipo: tipoObjeto.nomeFormatado,
+    corTime: jogador.corTime ?? Colors.grey,
+    jogadorNome: jogador.nome,
+    jogadorNumero: jogador.numero,
+    horario: tempoFormatado,
+    observacao: observacao,
+  );
+
+  setState(() {
+    if (nomeEvento.toLowerCase() == "gol") {
+      if (isTimeA) {
+        _golsA++;
+      } else {
+        _golsB++;
+      }
+    }
+
+    _eventosPartida.insert(0, novoEventoFeed);
+    _jogadorSelecionado = null;
+  });
+
+  final String equipeIdCorreta =
+      jogador.equipeId ??
+      (isTimeA ? widget.partida.equipeAId : widget.partida.equipeBId);
+
+  await _partidaService.salvarEvento(
+    partidaId: widget.partida.id,
+    equipeId: equipeIdCorreta,
+    tipoEventoId: tipoObjeto.id,
+    tempoFormatado: tempoFormatado,
+    atletaId: jogador.atletaId,
+    descricao: observacao,
+  );
+
+  final sufixoObservacao = observacao.trim().isEmpty
+      ? ''
+      : ' • Observação adicionada';
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        "${tipoObjeto.nomeFormatado} registrado: ${jogador.nome} (#${jogador.numero})$sufixoObservacao",
+      ),
+      backgroundColor: Colors.green,
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
+
+  
 
   // Helper simples para reduzir repetição de código nas validações
   void _mostrarAviso(String mensagem, Color cor) {
@@ -1037,6 +1042,133 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     int seg = totalSegundos % 60;
     return '${min.toString().padLeft(2, '0')}:${seg.toString().padLeft(2, '0')}';
   }
+
+  Future<String?> _solicitarObservacaoEvento({
+  required String tituloEvento,
+  String? nomeJogador,
+}) async {
+  final controller = TextEditingController();
+
+  final resultado = await showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      final bottomInset = MediaQuery.of(sheetContext).viewInsets.bottom;
+
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF2D2D2D),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Detalhar evento',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                nomeJogador == null || nomeJogador.trim().isEmpty
+                    ? 'Adicione uma observação para $tituloEvento. Esse campo é opcional.'
+                    : 'Adicione uma observação para $tituloEvento de $nomeJogador. Esse campo é opcional.',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLines: 4,
+                minLines: 3,
+                maxLength: 280,
+                textCapitalization: TextCapitalization.sentences,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Ex.: toque por trás, reclamação, lance confuso, atendimento no banco...',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
+                  filled: true,
+                  fillColor: Colors.black26,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(sheetContext, ''),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.white24),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Sem observação'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(
+                        sheetContext,
+                        controller.text.trim(),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00FFC2),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Salvar evento',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  controller.dispose();
+  return resultado;
+}
 
   void _abrirDetalhesJogador(Atleta jogador) {
     // Obtém as estatísticas dinâmicas
@@ -1642,86 +1774,96 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     );
   }
 
-  void _confirmarSubstituicao(Atleta saindo, Atleta entrando) {
-    final isA = _jogadoresA.contains(saindo);
-    final listTitulares = isA ? _jogadoresA : _jogadoresB;
-    final listReservas = isA ? _reservasA : _reservasB;
-    final equipeIdCorreta = isA
-        ? widget.partida.equipeAId
-        : widget.partida.equipeBId;
+  Future<void> _confirmarSubstituicao(Atleta saindo, Atleta entrando) async {
+  final observacao = await _solicitarObservacaoEvento(
+    tituloEvento: 'Substituição',
+    nomeJogador: '${saindo.nome} ↔ ${entrando.nome}',
+  );
+  if (observacao == null) return;
 
-    // Busca o tipo ANTES do setState
-    final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
-      (e) => e.nome.toUpperCase() == 'SUBSTITUIÇÃO',
-      orElse: () => TipoEventoEsporte(
-        id: '',
-        nome: 'SUBSTITUIÇÃO',
-        esporteId: '',
-        idx: 0,
-      ),
-    );
+  final isA = _jogadoresA.contains(saindo);
+  final listTitulares = isA ? _jogadoresA : _jogadoresB;
+  final listReservas = isA ? _reservasA : _reservasB;
+  final equipeIdCorreta = isA
+      ? widget.partida.equipeAId
+      : widget.partida.equipeBId;
+  final tempoFormatado = _formatarTempo(_segundos);
 
-    // ✅ Só mutações de estado dentro do setState
-    setState(() {
-      int idx = listTitulares.indexOf(saindo);
-      listTitulares[idx] = Atleta(
-        id: entrando.id,
-        atletaId: entrando.atletaId,
-        equipeId: equipeIdCorreta,
-        ativo: true,
-        numero: entrando.numero,
-        nome: entrando.nome,
-        corTime: entrando.corTime ?? (isA ? Colors.orange : Colors.blue),
-        posicao: saindo.posicao,
-      );
+  final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
+    (e) => e.nome.toUpperCase() == 'SUBSTITUIÇÃO',
+    orElse: () => TipoEventoEsporte(
+      id: '',
+      nome: 'SUBSTITUIÇÃO',
+      esporteId: '',
+      idx: 0,
+    ),
+  );
 
-      listReservas.remove(entrando);
-      listReservas.add(
-        Atleta(
-          id: saindo.id,
-          atletaId: saindo.atletaId,
-          equipeId: equipeIdCorreta,
-          ativo: false,
-          numero: saindo.numero,
-          nome: saindo.nome,
-          corTime: saindo.corTime,
-          posicao: Offset.zero,
-        ),
-      );
-
-      _eventosPartida.insert(
-        0,
-        EventoPartida(
-          tipo: 'Substituição',
-          jogadorNome: '${saindo.nome} ↔ ${entrando.nome}',
-          jogadorNumero: saindo.numero,
-          corTime: saindo.corTime ?? Colors.grey,
-          horario: _formatarTempo(_segundos),
-        ),
-      );
-
-      _jogadorSelecionado = null;
-    });
-
-    // ✅ Side effects fora
-    _partidaService.salvarEvento(
-      partidaId: widget.partida.id,
-      tipoEventoId: tipoEvento.id,
-      tempoFormatado: _formatarTempo(_segundos),
+  setState(() {
+    int idx = listTitulares.indexOf(saindo);
+    listTitulares[idx] = Atleta(
+      id: entrando.id,
       atletaId: entrando.atletaId,
-      atletaSaiId: saindo.atletaId,
       equipeId: equipeIdCorreta,
-      isSubstitution: true,
+      ativo: true,
+      numero: entrando.numero,
+      nome: entrando.nome,
+      corTime: entrando.corTime ?? (isA ? Colors.orange : Colors.blue),
+      posicao: saindo.posicao,
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "Substituição: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})",
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
+    listReservas.remove(entrando);
+    listReservas.add(
+      Atleta(
+        id: saindo.id,
+        atletaId: saindo.atletaId,
+        equipeId: equipeIdCorreta,
+        ativo: false,
+        numero: saindo.numero,
+        nome: saindo.nome,
+        corTime: saindo.corTime,
+        posicao: Offset.zero,
       ),
     );
-  }
+
+    _eventosPartida.insert(
+      0,
+      EventoPartida(
+        tipo: 'Substituição',
+        jogadorNome: '${saindo.nome} ↔ ${entrando.nome}',
+        jogadorNumero: saindo.numero,
+        corTime: saindo.corTime ?? Colors.grey,
+        horario: tempoFormatado,
+        observacao: observacao,
+      ),
+    );
+
+    _jogadorSelecionado = null;
+  });
+
+  await _partidaService.salvarEvento(
+    partidaId: widget.partida.id,
+    tipoEventoId: tipoEvento.id,
+    tempoFormatado: tempoFormatado,
+    atletaId: entrando.atletaId,
+    atletaSaiId: saindo.atletaId,
+    equipeId: equipeIdCorreta,
+    isSubstitution: true,
+    descricao: observacao,
+  );
+
+  final sufixoObservacao = observacao.trim().isEmpty
+      ? ''
+      : ' • Observação adicionada';
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        "Substituição: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})$sufixoObservacao",
+      ),
+      backgroundColor: Colors.green,
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
 }
