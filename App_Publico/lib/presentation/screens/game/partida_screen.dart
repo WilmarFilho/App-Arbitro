@@ -114,6 +114,18 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
     super.dispose();
   }
 
+  String _formatarHoraMinuto(String? timestamp) {
+    if (timestamp == null) return '';
+
+    final dt = DateTime.tryParse(timestamp);
+    if (dt == null) return '';
+
+    final hora = dt.toLocal().hour.toString().padLeft(2, '0');
+    final minuto = dt.toLocal().minute.toString().padLeft(2, '0');
+
+    return "$hora:$minuto";
+  }
+
   String _friendlyEventName(Map<String, dynamic> ev) {
     final tipoData = _tiposEventosCache.firstWhere(
       (t) => t['id'] == ev['tipo_evento_id'],
@@ -272,29 +284,29 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   }
 
   Future<String> _buildEventDescription(Map<String, dynamic> ev) async {
-  final friendlyName = _friendlyEventName(ev);
-  final atletaId = ev['atleta_id']?.toString();
-  final atletaSaiId = ev['atleta_sai_id']?.toString();
-  final isSubstitution = ev['is_substitution'] == true;
-  final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
+    final friendlyName = _friendlyEventName(ev);
+    final atletaId = ev['atleta_id']?.toString();
+    final atletaSaiId = ev['atleta_sai_id']?.toString();
+    final isSubstitution = ev['is_substitution'] == true;
+    final descricao = (ev['descricao_detalhada']?.toString() ?? '').trim();
 
-  final parts = <String>[friendlyName];
+    final parts = <String>[friendlyName];
 
-  if (isSubstitution && atletaId != null && atletaSaiId != null) {
-    final nomeEntra = await _resolveAtletaNome(atletaId);
-    final nomeSai = await _resolveAtletaNome(atletaSaiId);
-    if (nomeEntra != null && nomeSai != null) {
-      parts.add('Entra: $nomeEntra, Sai: $nomeSai');
+    if (isSubstitution && atletaId != null && atletaSaiId != null) {
+      final nomeEntra = await _resolveAtletaNome(atletaId);
+      final nomeSai = await _resolveAtletaNome(atletaSaiId);
+      if (nomeEntra != null && nomeSai != null) {
+        parts.add('Entra: $nomeEntra, Sai: $nomeSai');
+      }
+    } else if (atletaId != null) {
+      final nome = await _resolveAtletaNome(atletaId);
+      if (nome != null) parts.add(nome);
     }
-  } else if (atletaId != null) {
-    final nome = await _resolveAtletaNome(atletaId);
-    if (nome != null) parts.add(nome);
+
+    if (descricao.isNotEmpty) parts.add('Obs.: $descricao');
+
+    return parts.join(' — ');
   }
-
-  if (descricao.isNotEmpty) parts.add('Obs.: $descricao');
-
-  return parts.join(' — ');
-}
 
   @override
   Widget build(BuildContext context) {
@@ -546,6 +558,8 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
   Widget _buildTimelineItem(Map<String, dynamic> ev, int index, int total) {
     final friendlyName = _friendlyEventName(ev);
 
+    final horaEvento = _formatarHoraMinuto(ev['criado_em']?.toString());
+
     final tipoData = _tiposEventosCache.firstWhere(
       (t) => t['id'] == ev['tipo_evento_id'],
       orElse: () => {'nome': 'Evento'},
@@ -629,12 +643,26 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
               ),
               child: Row(
                 children: [
-                  Text(
-                    "${ev['tempo_cronometro'] ?? "00'00"}",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFF85C39),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${ev['tempo_cronometro'] ?? "00'00"}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFF85C39),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        horaEvento,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(width: 15),
                   Expanded(

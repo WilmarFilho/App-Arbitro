@@ -6,6 +6,7 @@ import 'package:kyarem_eventos/models/atleta_model.dart';
 import 'package:kyarem_eventos/models/helpers/evento_partida_model.dart';
 import 'package:kyarem_eventos/presentation/screens/game/resumo_partida_screen.dart';
 import 'package:kyarem_eventos/services/partida_service.dart';
+import 'package:kyarem_eventos/services/pdf_service.dart';
 import '../../widgets/layout/gradient_background.dart';
 import '../../widgets/game/game_scoreboard.dart';
 import '../../widgets/game/game_events_feed.dart';
@@ -22,6 +23,154 @@ enum PeriodoPartida {
   prorrogacao,
   acrescimo,
   finalizada,
+}
+
+class _ObservacaoEventoModal extends StatefulWidget {
+  final String tituloEvento;
+  final String? nomeJogador;
+
+  const _ObservacaoEventoModal({required this.tituloEvento, this.nomeJogador});
+
+  @override
+  State<_ObservacaoEventoModal> createState() => _ObservacaoEventoModalState();
+}
+
+class _ObservacaoEventoModalState extends State<_ObservacaoEventoModal> {
+  final TextEditingController controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF2D2D2D),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// Barra superior
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            /// Título
+            const Text(
+              'Detalhar evento',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            /// Descrição
+            Text(
+              widget.nomeJogador == null || widget.nomeJogador!.trim().isEmpty
+                  ? 'Adicione uma observação para ${widget.tituloEvento}. Esse campo é opcional.'
+                  : 'Adicione uma observação para ${widget.tituloEvento} de ${widget.nomeJogador}. Esse campo é opcional.',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            /// Campo texto
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 4,
+              minLines: 3,
+              maxLength: 280,
+              textCapitalization: TextCapitalization.sentences,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Ex.: toque por trás, reclamação, lance confuso...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
+                filled: true,
+                fillColor: Colors.black26,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            /// Botões
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, ''),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.white24),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Sem observação'),
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final texto = controller.text.trim();
+                      Navigator.pop(context, texto);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00FFC2),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Salvar evento',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class PartidaRunningScreen extends StatefulWidget {
@@ -56,6 +205,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
   late PeriodoPartida _periodoAtual;
   PeriodoPartida? _periodoAntesDoAcrescimo;
   PeriodoPartida? _periodoAntesDoPausa;
+
+  Timer? _intervaloTimer;
+  int _segundosIntervalo = 0;
+  String _tempoIntervaloFormatado = "00:00";
 
   Timer? _timer;
   int _segundos = 0;
@@ -92,21 +245,62 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     _carregarDadosIniciais().then((_) => _sincronizarCronometro());
   }
 
+  // Localize o método _carregarDadosIniciais e adicione _carregarEventosSalvos()
   Future<void> _carregarDadosIniciais() async {
     setState(() => _carregandoDados = true);
 
     try {
-      // Executa as duas buscas em paralelo
       await Future.wait([
         _buscarConfiguracoesDeEventos(),
         _carregarAtletas(),
         _carregarNomesEquipes(),
+        _carregarEventosSalvos(), // <-- Adicione esta linha
       ]);
     } catch (e) {
       debugPrint("Erro no carregamento inicial: $e");
     } finally {
-      // Só desativa o loader quando as duas promessas acima forem resolvidas
       setState(() => _carregandoDados = false);
+    }
+  }
+
+  // Crie o método para converter os dados do banco para o modelo do Feed
+  Future<void> _carregarEventosSalvos() async {
+    try {
+      final rawEventos = await _partidaService.buscarEventosDaPartida(
+        widget.partida.id,
+      );
+
+      final listaConvertida = rawEventos.map((ev) {
+        // Tenta identificar se o evento pertence ao Time A ou B para a cor
+        final atletaId = ev['atleta_id'];
+        Color? corDinamica;
+
+        if (atletaId != null) {
+          // Verifica nos atletas já carregados
+          bool isA =
+              _jogadoresA.any((a) => a.atletaId == atletaId) ||
+              _reservasA.any((a) => a.atletaId == atletaId);
+          corDinamica = isA ? Colors.orange : Colors.blue;
+        }
+
+        return EventoPartida(
+          tipo: ev['tipo_evento']?['nome']?.toString() ?? 'Evento',
+          jogadorNome: ev['atleta']?['nome']?.toString(),
+          jogadorNumero: ev['atleta']?['numero'] != null
+              ? int.tryParse(ev['atleta']!['numero'].toString())
+              : null,
+          corTime: corDinamica,
+          horario: ev['tempo_cronometro']?.toString() ?? '00:00',
+          observacao: ev['descricao']?.toString() ?? '',
+        );
+      }).toList();
+
+      setState(() {
+        _eventosPartida.clear();
+        _eventosPartida.addAll(listaConvertida);
+      });
+    } catch (e) {
+      debugPrint("Erro ao carregar eventos salvos: $e");
     }
   }
 
@@ -301,6 +495,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     _timerPausaTecnica?.cancel(); // Limpar timer de pausa técnica
     _timerAcrescimo?.cancel(); // Limpar timer do acrescimo
     _timerProrrogacao?.cancel(); // Limpar timer da prorrogação
+    _intervaloTimer?.cancel(); // Não esqueça de cancelar no dispose
     super.dispose();
   }
 
@@ -450,6 +645,25 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     }
   }
 
+  void _iniciarTimerIntervalo() {
+    _intervaloTimer?.cancel();
+    setState(() {
+      _segundosIntervalo = 0;
+      _tempoIntervaloFormatado = "00:00";
+    });
+
+    _intervaloTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_periodoAtual == PeriodoPartida.intervalo) {
+        setState(() {
+          _segundosIntervalo++;
+          _tempoIntervaloFormatado = _formatarTempo(_segundosIntervalo);
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
   // Inicia período de prorrogação
   void _iniciarProrrogacao() {
     _timer?.cancel();
@@ -499,12 +713,10 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     _registrarEventoSistemico('ACRESCIMO');
   }
 
-  // Finaliza o primeiro tempo automaticamente ou manualmente
   void _finalizarPrimeiroTempo() {
     _timer?.cancel();
     _timerPausa?.cancel();
 
-    // ✅ Só estado síncrono dentro do setState
     setState(() {
       _rodando = false;
       _periodoAtual = PeriodoPartida.intervalo;
@@ -513,13 +725,15 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
       _estaNoAcrescimo = false;
     });
 
-    // ✅ Side effects fora
     _partidaService.atualizarPartida(
       widget.partida.id,
       novoStatus: 'intervalo',
     );
     _registrarEventoSistemico('FIM_1_TEMPO');
     _registrarEventoSistemico('INTERVALO');
+
+    // 🔥 DISPARA O CRONÔMETRO DE INTERVALO AQUI
+    _iniciarTimerIntervalo();
   }
 
   // Finaliza o segundo tempo e a partida
@@ -940,95 +1154,95 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
   }
 
   Future<void> _registrarEvento(TipoEventoEsporte tipoObjeto) async {
-  // 1. Validações de Estado da Partida
-  if (_periodoAtual == PeriodoPartida.naoIniciada) {
-    _mostrarAviso("Inicie a partida primeiro!", Colors.orange);
-    return;
-  }
-
-  if (_periodoAtual == PeriodoPartida.finalizada) {
-    _mostrarAviso("Partida já encerrada!", Colors.red);
-    return;
-  }
-
-  if (_periodoAtual == PeriodoPartida.intervalo) {
-    _mostrarAviso("Não é possível registrar no intervalo!", Colors.blue);
-    return;
-  }
-
-  if (_jogadorSelecionado == null) {
-    _mostrarAviso("Selecione um jogador no campo primeiro!", Colors.red);
-    return;
-  }
-
-  final String nomeEvento = tipoObjeto.nome.trim();
-  final String tempoFormatado = _formatarTempo(_segundos);
-
-  if (nomeEvento.toLowerCase() == "substituição") {
-    _abrirModalSubstituicaoNovo();
-    return;
-  }
-
-  final observacao = await _solicitarObservacaoEvento(
-    tituloEvento: tipoObjeto.nomeFormatado,
-    nomeJogador: _jogadorSelecionado?.nome,
-  );
-  if (observacao == null) return;
-
-  final jogador = _jogadorSelecionado!;
-  final isTimeA = _jogadoresA.contains(jogador);
-
-  final novoEventoFeed = EventoPartida(
-    tipo: tipoObjeto.nomeFormatado,
-    corTime: jogador.corTime ?? Colors.grey,
-    jogadorNome: jogador.nome,
-    jogadorNumero: jogador.numero,
-    horario: tempoFormatado,
-    observacao: observacao,
-  );
-
-  setState(() {
-    if (nomeEvento.toLowerCase() == "gol") {
-      if (isTimeA) {
-        _golsA++;
-      } else {
-        _golsB++;
-      }
+    // 1. Validações de Estado da Partida
+    if (_periodoAtual == PeriodoPartida.naoIniciada) {
+      _mostrarAviso("Inicie a partida primeiro!", Colors.orange);
+      return;
     }
 
-    _eventosPartida.insert(0, novoEventoFeed);
-    _jogadorSelecionado = null;
-  });
+    if (_periodoAtual == PeriodoPartida.finalizada) {
+      _mostrarAviso("Partida já encerrada!", Colors.red);
+      return;
+    }
 
-  final String equipeIdCorreta =
-      jogador.equipeId ??
-      (isTimeA ? widget.partida.equipeAId : widget.partida.equipeBId);
+    if (_periodoAtual == PeriodoPartida.intervalo) {
+      _mostrarAviso("Não é possível registrar no intervalo!", Colors.blue);
+      return;
+    }
 
-  await _partidaService.salvarEvento(
-    partidaId: widget.partida.id,
-    equipeId: equipeIdCorreta,
-    tipoEventoId: tipoObjeto.id,
-    tempoFormatado: tempoFormatado,
-    atletaId: jogador.atletaId,
-    descricao: observacao,
-  );
+    if (_jogadorSelecionado == null) {
+      _mostrarAviso("Selecione um jogador no campo primeiro!", Colors.red);
+      return;
+    }
 
-  final sufixoObservacao = observacao.trim().isEmpty
-      ? ''
-      : ' • Observação adicionada';
+    final String nomeEvento = tipoObjeto.nome.trim();
+    final String tempoFormatado = _formatarTempo(_segundos);
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        "${tipoObjeto.nomeFormatado} registrado: ${jogador.nome} (#${jogador.numero})$sufixoObservacao",
+    if (nomeEvento.toLowerCase() == "substituição") {
+      _abrirModalSubstituicaoNovo();
+      return;
+    }
+
+    final observacao = await _solicitarObservacaoEvento(
+      tituloEvento: tipoObjeto.nomeFormatado,
+      nomeJogador: _jogadorSelecionado?.nome,
+    );
+
+    if (!mounted) return;
+    if (observacao == null) return;
+
+    final jogador = _jogadorSelecionado!;
+    final isTimeA = _jogadoresA.contains(jogador);
+
+    final novoEventoFeed = EventoPartida(
+      tipo: tipoObjeto.nomeFormatado,
+      corTime: jogador.corTime ?? Colors.grey,
+      jogadorNome: jogador.nome,
+      jogadorNumero: jogador.numero,
+      horario: tempoFormatado,
+      observacao: observacao,
+    );
+
+    setState(() {
+      if (nomeEvento.toLowerCase() == "gol") {
+        if (isTimeA) {
+          _golsA++;
+        } else {
+          _golsB++;
+        }
+      }
+
+      _eventosPartida.insert(0, novoEventoFeed);
+      _jogadorSelecionado = null;
+    });
+
+    final String equipeIdCorreta =
+        jogador.equipeId ??
+        (isTimeA ? widget.partida.equipeAId : widget.partida.equipeBId);
+
+    await _partidaService.salvarEvento(
+      partidaId: widget.partida.id,
+      equipeId: equipeIdCorreta,
+      tipoEventoId: tipoObjeto.id,
+      tempoFormatado: tempoFormatado,
+      atletaId: jogador.atletaId,
+      descricao: observacao,
+    );
+
+    final sufixoObservacao = observacao.trim().isEmpty
+        ? ''
+        : ' • Observação adicionada';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "${tipoObjeto.nomeFormatado} registrado: ${jogador.nome} (#${jogador.numero})$sufixoObservacao",
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
-      backgroundColor: Colors.green,
-      duration: const Duration(seconds: 2),
-    ),
-  );
-}
-
-  
+    );
+  }
 
   // Helper simples para reduzir repetição de código nas validações
   void _mostrarAviso(String mensagem, Color cor) {
@@ -1044,131 +1258,19 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
   }
 
   Future<String?> _solicitarObservacaoEvento({
-  required String tituloEvento,
-  String? nomeJogador,
-}) async {
-  final controller = TextEditingController();
-
-  final resultado = await showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) {
-      final bottomInset = MediaQuery.of(sheetContext).viewInsets.bottom;
-
-      return Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF2D2D2D),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Detalhar evento',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                nomeJogador == null || nomeJogador.trim().isEmpty
-                    ? 'Adicione uma observação para $tituloEvento. Esse campo é opcional.'
-                    : 'Adicione uma observação para $tituloEvento de $nomeJogador. Esse campo é opcional.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 13,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                maxLines: 4,
-                minLines: 3,
-                maxLength: 280,
-                textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Ex.: toque por trás, reclamação, lance confuso, atendimento no banco...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
-                  filled: true,
-                  fillColor: Colors.black26,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(sheetContext, ''),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white24),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text('Sem observação'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(
-                        sheetContext,
-                        controller.text.trim(),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00FFC2),
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text(
-                        'Salvar evento',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-
-  controller.dispose();
-  return resultado;
-}
+    required String tituloEvento,
+    String? nomeJogador,
+  }) {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ObservacaoEventoModal(
+        tituloEvento: tituloEvento,
+        nomeJogador: nomeJogador,
+      ),
+    );
+  }
 
   void _abrirDetalhesJogador(Atleta jogador) {
     // Obtém as estatísticas dinâmicas
@@ -1441,6 +1543,7 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                                 onFinalizarSegundoTempo: _finalizarPartida,
                                 onAbrirModalProrrogacao: _abrirModalProrrogacao,
                                 onAbrirModalAcrescimo: _abrirModalAcrescimo,
+                                segundosIntervalo: _segundosIntervalo,
                               ),
 
                               const SizedBox(height: 16),
@@ -1527,6 +1630,58 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                                 ),
                                 const SizedBox(height: 16),
                               ],
+
+                              // No Column do build, após o GameTimerCard:
+                              const SizedBox(height: 12),
+
+                              if (_partidaJaIniciou && _periodoAtual != PeriodoPartida.finalizada)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: SizedBox(
+                                    width: double
+                                        .infinity, // Garante que o botão ocupe a largura total
+                                    child: ElevatedButton.icon(
+                                      onPressed: () async {
+                                        await PdfService.gerarSumulaPartida(
+                                          context: context,
+                                          timeA: _nomeTimeA,
+                                          timeB: _nomeTimeB,
+                                          golsA: _golsA,
+                                          golsB: _golsB,
+                                          eventos: _eventosPartida,
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.picture_as_pdf,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      label: const Text(
+                                        "VISUALIZAR SÚMULA ATUAL",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.1,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF2D2D2D,
+                                        ),
+                                        padding: const EdgeInsets.all(16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            100,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 30),
 
                               // Botão Sair/Voltar dinâmico
                               _buildBotaoVoltar(),
@@ -1775,95 +1930,97 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
   }
 
   Future<void> _confirmarSubstituicao(Atleta saindo, Atleta entrando) async {
-  final observacao = await _solicitarObservacaoEvento(
-    tituloEvento: 'Substituição',
-    nomeJogador: '${saindo.nome} ↔ ${entrando.nome}',
-  );
-  if (observacao == null) return;
-
-  final isA = _jogadoresA.contains(saindo);
-  final listTitulares = isA ? _jogadoresA : _jogadoresB;
-  final listReservas = isA ? _reservasA : _reservasB;
-  final equipeIdCorreta = isA
-      ? widget.partida.equipeAId
-      : widget.partida.equipeBId;
-  final tempoFormatado = _formatarTempo(_segundos);
-
-  final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
-    (e) => e.nome.toUpperCase() == 'SUBSTITUIÇÃO',
-    orElse: () => TipoEventoEsporte(
-      id: '',
-      nome: 'SUBSTITUIÇÃO',
-      esporteId: '',
-      idx: 0,
-    ),
-  );
-
-  setState(() {
-    int idx = listTitulares.indexOf(saindo);
-    listTitulares[idx] = Atleta(
-      id: entrando.id,
-      atletaId: entrando.atletaId,
-      equipeId: equipeIdCorreta,
-      ativo: true,
-      numero: entrando.numero,
-      nome: entrando.nome,
-      corTime: entrando.corTime ?? (isA ? Colors.orange : Colors.blue),
-      posicao: saindo.posicao,
+    final observacao = await _solicitarObservacaoEvento(
+      tituloEvento: 'Substituição',
+      nomeJogador: '${saindo.nome} ↔ ${entrando.nome}',
     );
 
-    listReservas.remove(entrando);
-    listReservas.add(
-      Atleta(
-        id: saindo.id,
-        atletaId: saindo.atletaId,
+    if (!mounted) return;
+    if (observacao == null) return;
+
+    final isA = _jogadoresA.contains(saindo);
+    final listTitulares = isA ? _jogadoresA : _jogadoresB;
+    final listReservas = isA ? _reservasA : _reservasB;
+    final equipeIdCorreta = isA
+        ? widget.partida.equipeAId
+        : widget.partida.equipeBId;
+    final tempoFormatado = _formatarTempo(_segundos);
+
+    final tipoEvento = _tiposDeEventosDisponiveis.firstWhere(
+      (e) => e.nome.toUpperCase() == 'SUBSTITUIÇÃO',
+      orElse: () => TipoEventoEsporte(
+        id: '',
+        nome: 'SUBSTITUIÇÃO',
+        esporteId: '',
+        idx: 0,
+      ),
+    );
+
+    setState(() {
+      int idx = listTitulares.indexOf(saindo);
+      listTitulares[idx] = Atleta(
+        id: entrando.id,
+        atletaId: entrando.atletaId,
         equipeId: equipeIdCorreta,
-        ativo: false,
-        numero: saindo.numero,
-        nome: saindo.nome,
-        corTime: saindo.corTime,
-        posicao: Offset.zero,
-      ),
+        ativo: true,
+        numero: entrando.numero,
+        nome: entrando.nome,
+        corTime: entrando.corTime ?? (isA ? Colors.orange : Colors.blue),
+        posicao: saindo.posicao,
+      );
+
+      listReservas.remove(entrando);
+      listReservas.add(
+        Atleta(
+          id: saindo.id,
+          atletaId: saindo.atletaId,
+          equipeId: equipeIdCorreta,
+          ativo: false,
+          numero: saindo.numero,
+          nome: saindo.nome,
+          corTime: saindo.corTime,
+          posicao: Offset.zero,
+        ),
+      );
+
+      _eventosPartida.insert(
+        0,
+        EventoPartida(
+          tipo: 'Substituição',
+          jogadorNome: '${saindo.nome} ↔ ${entrando.nome}',
+          jogadorNumero: saindo.numero,
+          corTime: saindo.corTime ?? Colors.grey,
+          horario: tempoFormatado,
+          observacao: observacao,
+        ),
+      );
+
+      _jogadorSelecionado = null;
+    });
+
+    await _partidaService.salvarEvento(
+      partidaId: widget.partida.id,
+      tipoEventoId: tipoEvento.id,
+      tempoFormatado: tempoFormatado,
+      atletaId: entrando.atletaId,
+      atletaSaiId: saindo.atletaId,
+      equipeId: equipeIdCorreta,
+      isSubstitution: true,
+      descricao: observacao,
     );
 
-    _eventosPartida.insert(
-      0,
-      EventoPartida(
-        tipo: 'Substituição',
-        jogadorNome: '${saindo.nome} ↔ ${entrando.nome}',
-        jogadorNumero: saindo.numero,
-        corTime: saindo.corTime ?? Colors.grey,
-        horario: tempoFormatado,
-        observacao: observacao,
+    final sufixoObservacao = observacao.trim().isEmpty
+        ? ''
+        : ' • Observação adicionada';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Substituição: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})$sufixoObservacao",
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
-
-    _jogadorSelecionado = null;
-  });
-
-  await _partidaService.salvarEvento(
-    partidaId: widget.partida.id,
-    tipoEventoId: tipoEvento.id,
-    tempoFormatado: tempoFormatado,
-    atletaId: entrando.atletaId,
-    atletaSaiId: saindo.atletaId,
-    equipeId: equipeIdCorreta,
-    isSubstitution: true,
-    descricao: observacao,
-  );
-
-  final sufixoObservacao = observacao.trim().isEmpty
-      ? ''
-      : ' • Observação adicionada';
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        "Substituição: ${saindo.nome} (#${saindo.numero}) ↔ ${entrando.nome} (#${entrando.numero})$sufixoObservacao",
-      ),
-      backgroundColor: Colors.green,
-      duration: const Duration(seconds: 2),
-    ),
-  );
-}
+  }
 }
