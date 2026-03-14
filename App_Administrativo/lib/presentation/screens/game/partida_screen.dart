@@ -1679,7 +1679,9 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                                   ),
                                 ),
 
-                              const SizedBox(height: 30),
+                              if (_partidaJaIniciou &&
+                                  _periodoAtual != PeriodoPartida.finalizada)
+                                const SizedBox(height: 30),
 
                               // Botão Sair/Voltar dinâmico
                               _buildBotaoVoltar(),
