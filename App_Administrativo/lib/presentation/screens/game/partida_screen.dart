@@ -208,7 +208,6 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
 
   Timer? _intervaloTimer;
   int _segundosIntervalo = 0;
-  String _tempoIntervaloFormatado = "00:00";
 
   Timer? _timer;
   int _segundos = 0;
@@ -649,14 +648,12 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
     _intervaloTimer?.cancel();
     setState(() {
       _segundosIntervalo = 0;
-      _tempoIntervaloFormatado = "00:00";
     });
 
     _intervaloTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_periodoAtual == PeriodoPartida.intervalo) {
         setState(() {
           _segundosIntervalo++;
-          _tempoIntervaloFormatado = _formatarTempo(_segundosIntervalo);
         });
       } else {
         timer.cancel();
@@ -1634,7 +1631,8 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
                               // No Column do build, após o GameTimerCard:
                               const SizedBox(height: 12),
 
-                              if (_partidaJaIniciou && _periodoAtual != PeriodoPartida.finalizada)
+                              if (_partidaJaIniciou &&
+                                  _periodoAtual != PeriodoPartida.finalizada)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 4,
