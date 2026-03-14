@@ -269,30 +269,34 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
         widget.partida.id,
       );
 
-      final listaConvertida = rawEventos.map((ev) {
-        // Tenta identificar se o evento pertence ao Time A ou B para a cor
-        final atletaId = ev['atleta_id'];
-        Color? corDinamica;
+      final listaConvertida = rawEventos
+          .map((ev) {
+            // Tenta identificar se o evento pertence ao Time A ou B para a cor
+            final atletaId = ev['atleta_id'];
+            Color? corDinamica;
 
-        if (atletaId != null) {
-          // Verifica nos atletas já carregados
-          bool isA =
-              _jogadoresA.any((a) => a.atletaId == atletaId) ||
-              _reservasA.any((a) => a.atletaId == atletaId);
-          corDinamica = isA ? Colors.orange : Colors.blue;
-        }
+            if (atletaId != null) {
+              // Verifica nos atletas já carregados
+              bool isA =
+                  _jogadoresA.any((a) => a.atletaId == atletaId) ||
+                  _reservasA.any((a) => a.atletaId == atletaId);
+              corDinamica = isA ? Colors.orange : Colors.blue;
+            }
 
-        return EventoPartida(
-          tipo: ev['tipo_evento']?['nome']?.toString() ?? 'Evento',
-          jogadorNome: ev['atleta']?['nome']?.toString(),
-          jogadorNumero: ev['atleta']?['numero'] != null
-              ? int.tryParse(ev['atleta']!['numero'].toString())
-              : null,
-          corTime: corDinamica,
-          horario: ev['tempo_cronometro']?.toString() ?? '00:00',
-          observacao: ev['descricao']?.toString() ?? '',
-        );
-      }).toList();
+            return EventoPartida(
+              tipo: ev['tipo_evento']?['nome']?.toString() ?? 'Evento',
+              jogadorNome: ev['atleta']?['nome']?.toString(),
+              jogadorNumero: ev['atleta']?['numero'] != null
+                  ? int.tryParse(ev['atleta']!['numero'].toString())
+                  : null,
+              corTime: corDinamica,
+              horario: ev['tempo_cronometro']?.toString() ?? '00:00',
+              observacao: ev['descricao']?.toString() ?? '',
+            );
+          })
+          .toList()
+          .reversed
+          .toList();
 
       setState(() {
         _eventosPartida.clear();
