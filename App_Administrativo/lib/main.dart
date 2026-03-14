@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:wakelock_plus/wakelock_plus.dart'; // Importado
 import 'presentation/screens/main/home_screen.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/auth/reset_password_screen.dart';
@@ -14,6 +15,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Mantém a tela ligada em todo o app
+  WakelockPlus.enable();
 
   if (Platform.isWindows || Platform.isLinux) {
     sqfliteFfiInit();
