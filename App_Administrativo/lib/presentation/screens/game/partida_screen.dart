@@ -990,7 +990,11 @@ class _PartidaRunningScreenState extends State<PartidaRunningScreen>
         break;
     }
 
-    _registrarEventoSistemico('PAUSA_TECNICA');
+    _registrarEventoSistemico(
+      'PAUSA_TECNICA',
+      descricao:
+          'Pausa técnica iniciada para os ${isTimeA ? nomeTimeA : nomeTimeB}!',
+    );
 
     // Timer de 1 minuto (60 segundos) para pausa técnica
     _timerPausaTecnica = Timer.periodic(const Duration(seconds: 1), (timer) {
