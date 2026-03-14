@@ -22,7 +22,7 @@ class EventoService {
     'TIRO_DE_SAIDA': 'Tiro de Saída',
     'TIRO_LATERAL': 'Tiro Lateral',
     'TIRO_LIVRE_INDIRETO': 'Tiro Livre Indireto',
-    'ARREMESSO_DE_META': 'Arremesso de Meta',
+    'ARREMESO_DE_META': 'Arremesso de Meta',
     'INTERVALO': '⏸️ Intervalo',
     'PRORROGACAO': '⏱️ Prorrogação',
     'PRORROGACAO_DADA': '⏱️ Prorrogação Definida',

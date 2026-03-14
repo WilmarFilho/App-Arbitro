@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/evento_service.dart';
 import '../../../services/firebase_messaging_service.dart';
+import 'atletas_partida_screen.dart';
+import 'resumo_estatistica_partida_screen.dart';
 
 class JogoDetalhesScreen extends StatefulWidget {
   final String partidaId;
@@ -303,7 +305,7 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
       if (nome != null) parts.add(nome);
     }
 
-    if (descricao.isNotEmpty) parts.add('Obs.: $descricao');
+    if (descricao.isNotEmpty) parts.add('Obs: $descricao');
 
     return parts.join(' — ');
   }
@@ -355,6 +357,56 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                 },
               ),
             ),
+          ),
+        ],
+      ),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: "btn_atletas",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AtletasPartidaScreen(
+                    partidaId: widget.partidaId,
+                    timeA: widget.timeA,
+                    timeB: widget.timeB,
+                    escudoA: widget.EscudoTimeA,
+                    escudoB: widget.EscudoTimeB,
+                  ),
+                ),
+              );
+            },
+            backgroundColor: Colors.white,
+            foregroundColor: const Color(0xFFF85C39),
+            elevation: 4,
+            icon: const Icon(Icons.group_outlined),
+            label: const Text('Atletas'),
+          ),
+          const SizedBox(width: 12),
+          FloatingActionButton.extended(
+            heroTag: "btn_estatisticas",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ResumoEstatisticaPartidaScreen(
+                    partidaId: widget.partidaId,
+                    timeA: widget.timeA,
+                    timeB: widget.timeB,
+                    escudoA: widget.EscudoTimeA,
+                    escudoB: widget.EscudoTimeB,
+                  ),
+                ),
+              );
+            },
+            backgroundColor: const Color(0xFFF85C39),
+            foregroundColor: Colors.white,
+            elevation: 4,
+            icon: const Icon(Icons.analytics_outlined),
+            label: const Text('Resumo'),
           ),
         ],
       ),
@@ -646,14 +698,16 @@ class _JogoDetalhesScreenState extends State<JogoDetalhesScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "${ev['tempo_cronometro'] ?? "00'00"}",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFF85C39),
+                      if (ev['atleta_id'] != null) ...[
+                        Text(
+                          "${ev['tempo_cronometro'] ?? "00'00"}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFF85C39),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
+                        const SizedBox(height: 2),
+                      ],
                       Text(
                         horaEvento,
                         style: TextStyle(
